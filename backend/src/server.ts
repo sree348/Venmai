@@ -43,7 +43,7 @@ io.on('connection', socket => {
   }
 });
 
-app.use(cors({ origin: frontendOrigin }));
+app.use(cors({ origin: true }));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/', (_req, res) => {
