@@ -1,0 +1,1183 @@
+import { useState, useEffect } from 'react';
+import { useApp } from '../context/AppContext';
+import { apiService } from '../../services/api.service';
+import { X, Plus, ChevronRight, Target, Trash2, Eye, Edit, Pause, Play, MoreVertical, Layers, Tv, Folder, Megaphone, CheckSquare, Square, Copy, ArrowUpDown, Calendar, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'sonner';
+import PageWrapper from '../components/shared/PageWrapper';
+import ClientAvatar from '../components/shared/ClientAvatar';
+import StatusBadge from '../components/shared/StatusBadge';
+import PlatformDot from '../components/shared/PlatformDot';
+
+// Helper function to generate mock ad sets based on the campaign metrics
+function getAdSetsForCampaign(campaign: any) {
+  if (!campaign) return [];
+  const spend = campaign.spend || 0;
+  const conv = campaign.conv || 0;
+  const roas = campaign.roas || null;
+  const clicks = campaign.clicks || 0;
+  const impressions = campaign.impressions || 0;
+  const status = campaign.status || 'healthy';
+
+  return [
+    {
+      id: `${campaign.id}-adset-1`,
+      name: `Lookalike 1–2% — Active Buyers (${campaign.name})`,
+      spend: Math.round(spend * 0.45),
+      clicks: Math.round(clicks * 0.48),
+      impressions: Math.round(impressions * 0.44),
+      conv: Math.round(conv * 0.52),
+      roas: roas ? Number((roas * 1.15).toFixed(2)) : null,
+      status: status === 'critical' ? 'critical' : 'healthy',
+      active: true,
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+    },
+    {
+      id: `${campaign.id}-adset-2`,
+      name: `Custom Audience — Website Retargeting 30d (${campaign.name})`,
+      spend: Math.round(spend * 0.35),
+      clicks: Math.round(clicks * 0.32),
+      impressions: Math.round(impressions * 0.36),
+      conv: Math.round(conv * 0.38),
+      roas: roas ? Number((roas * 1.25).toFixed(2)) : null,
+      status: 'healthy',
+      active: true,
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+    },
+    {
+      id: `${campaign.id}-adset-3`,
+      name: `Broad Interest Targeting — High Affinity Core (${campaign.name})`,
+      spend: Math.round(spend * 0.2),
+      clicks: Math.round(clicks * 0.2),
+      impressions: Math.round(impressions * 0.2),
+      conv: Math.round(conv * 0.1),
+      roas: roas ? Number((roas * 0.6).toFixed(2)) : null,
+      status: status === 'healthy' ? 'healthy' : 'at_risk',
+      active: false,
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+    },
+  ];
+}
+
+// Helper function to generate mock ads based on adset metrics
+function getAdsForAdSet(adset: any, campaign: any) {
+  if (!adset) return [];
+  const spend = adset.spend || 0;
+  const conv = adset.conv || 0;
+  const roas = adset.roas || null;
+  const clicks = adset.clicks || 0;
+  const status = adset.status || 'healthy';
+
+  const clientName = campaign?.clientId === 'finedge' ? 'FinEdge' : campaign?.clientId === 'bloombox' ? 'BloomBox' : campaign?.clientId === 'orbit' ? 'Orbit SaaS' : 'Nova Sportswear';
+
+  const adsConfig = [
+    {
+      name: `Video Ad — Customer Testimonials (UGC 1:1) — ${adset.name}`,
+      headline: `Real Reviews, Real Outcomes | Try ${clientName}`,
+      copy: `Tired of guesswork? See why thousands of active users trust ${clientName} for their everyday routine. Grab yours now with free delivery!`,
+      ctr: 2.85,
+      bg: 'from-blue-500/80 to-violet-600/80',
+    },
+    {
+      name: `Carousel Ad — Product Features & Details — ${adset.name}`,
+      headline: `Limited Offer: Save 20% on the ${clientName} Collection`,
+      copy: `Upgrade your style and elevate your standards with the new seasonal collection from ${clientName}. Click below to apply your discount.`,
+      ctr: 1.94,
+      bg: 'from-rose-500/80 to-pink-600/80',
+    },
+    {
+      name: `Static Image — High-Impact Hero Graphic — ${adset.name}`,
+      headline: `Empower Your Operations with ${clientName}`,
+      copy: `Achieve more in less time. Discover the state-of-the-art layout built by ${clientName} specialists to take your workflows to the next level.`,
+      ctr: 1.12,
+      bg: 'from-amber-400/80 to-orange-500/80',
+    },
+  ];
+
+  return adsConfig.map((ad, idx) => ({
+    id: `${adset.id}-ad-${idx + 1}`,
+    name: ad.name,
+    headline: ad.headline,
+    copy: ad.copy,
+    imageUrl: idx === 0 
+      ? 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&auto=format&fit=crop&q=80' // Offroad SUV
+      : idx === 1
+      ? 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&auto=format&fit=crop&q=80' // Sleek modern car
+      : 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop&q=80', // Dark sporty car
+    spend: Math.round(spend * (idx === 0 ? 0.5 : idx === 1 ? 0.3 : 0.2)),
+    clicks: Math.round(clicks * (idx === 0 ? 0.55 : idx === 1 ? 0.28 : 0.17)),
+    conv: Math.round(conv * (idx === 0 ? 0.6 : idx === 1 ? 0.3 : 0.1)),
+    roas: roas ? Number((roas * (idx === 0 ? 1.2 : idx === 1 ? 1.0 : 0.5)).toFixed(2)) : null,
+    ctr: ad.ctr,
+    status: idx === 2 ? 'warning' : status === 'critical' ? 'critical' : 'healthy',
+    active: idx !== 2,
+    bgGradient: ad.bg,
+    adsetId: adset.id,
+    adsetName: adset.name,
+  }));
+}
+
+export default function CampaignsScreen() {
+  const {
+    scopedCampaigns: campaigns,
+    campaigns: allCampaigns,
+    setCampaigns,
+    activeClient,
+    selectedClientId,
+    setSelectedClientId,
+    campaignFilter,
+    setCampaignFilter,
+    setShowCampaignModal,
+    setEditingCampaign,
+  } = useApp();
+
+  const { CLIENTS: clients } = useApp() as any;
+
+  // Navigation and Filter state
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'adsets' | 'ads'>('campaigns');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<number | string | null>(null);
+  const [selectedAdSetId, setSelectedAdSetId] = useState<string | null>(null);
+
+  // Track image loading errors to dynamically replace broken Meta image URLs
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  // Checkbox selections for the three tabs
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<number | string>>(new Set());
+  const [selectedAdSetIds, setSelectedAdSetIds] = useState<Set<string>>(new Set());
+  const [selectedAdIds, setSelectedAdIds] = useState<Set<string>>(new Set());
+
+  // Delete modal state
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+  // Dynamically constructed arrays for Ad Sets and Ads
+  const [allAdSets, setAllAdSets] = useState<any[]>([]);
+  const [allAds, setAllAds] = useState<any[]>([]);
+  const [isLoadingAdSets, setIsLoadingAdSets] = useState(false);
+  const [isLoadingAds, setIsLoadingAds] = useState(false);
+  const [selectedAdForPreview, setSelectedAdForPreview] = useState<any | null>(null);
+
+  // Status and month filters
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'draft' | 'inactive'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
+  const [selectedRangeLabel, setSelectedRangeLabel] = useState('All Months');
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // GENERATE DYNAMIC AD SETS & ADS ACROSS SYNCHRONIZED METRICS (MOCK MODE ONLY)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!apiService.isMockMode) return;
+
+    // Generate adsets for all matching campaigns
+    const sets = campaigns.flatMap(c => getAdSetsForCampaign(c));
+    setAllAdSets(sets);
+
+    // Generate ads for all generated adsets
+    const creativeAds = sets.flatMap(as => {
+      const camp = campaigns.find(c => String(c.id) === String(as.campaignId));
+      return getAdsForAdSet(as, camp);
+    });
+    setAllAds(creativeAds);
+  }, [campaigns]);
+
+  // Fetch real adsets dynamically from API when selected campaign changes (non-mock mode)
+  useEffect(() => {
+    const fetchAdSets = async () => {
+      if (apiService.isMockMode || !selectedCampaignId) return;
+      setIsLoadingAdSets(true);
+      try {
+        const realAdSets = await apiService.getAdSets(String(selectedCampaignId));
+        if (realAdSets && realAdSets.length > 0) {
+          setAllAdSets(prev => {
+            // Replace mock adsets with actual adsets returned from Graph API
+            const filtered = prev.filter(as => String(as.campaignId) !== String(selectedCampaignId));
+            return [...filtered, ...realAdSets];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to dynamically fetch adsets from Meta Graph API:', err);
+      } finally {
+        setIsLoadingAdSets(false);
+      }
+    };
+    fetchAdSets();
+  }, [selectedCampaignId]);
+
+  // Fetch real ads dynamically from API when selected adset changes (non-mock mode)
+  useEffect(() => {
+    const fetchAds = async () => {
+      if (apiService.isMockMode || !selectedAdSetId) return;
+      setIsLoadingAds(true);
+      try {
+        const realAds = await apiService.getAds(selectedAdSetId);
+        if (realAds && realAds.length > 0) {
+          setAllAds(prev => {
+            // Replace mock ads with actual ads returned from Graph API
+            const filtered = prev.filter(ad => ad.adsetId !== selectedAdSetId);
+            return [...filtered, ...realAds];
+          });
+        }
+      } catch (err) {
+        console.error('Failed to dynamically fetch ads from Meta Graph API:', err);
+      } finally {
+        setIsLoadingAds(false);
+      }
+    };
+    fetchAds();
+  }, [selectedAdSetId]);
+
+  // Proportional filter list depending on row checked states and status filter
+  const filteredCampaigns = campaigns
+    .filter(c => {
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active') return c.active || c.status === 'active';
+        if (statusFilter === 'paused') return !c.active && c.status === 'paused';
+        if (statusFilter === 'draft') return c.status === 'draft';
+        if (statusFilter === 'inactive') return !c.active || c.status !== 'active';
+      }
+      // Month filter
+      if (selectedMonth && selectedMonth !== 'all') {
+        const [y, m] = selectedMonth.split('-').map(Number);
+        return c.month === m && c.year === y;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Sort by year then month descending so most recent first
+      if (b.year !== a.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+
+  const filteredAdSets = allAdSets.filter(as => {
+    // Filter by status filter
+    if (statusFilter === 'active' && !as.active) return false;
+    if (statusFilter === 'paused' && as.active) return false;
+    if (statusFilter === 'inactive' && as.active) return false;
+
+    // Filter by breadcrumb click
+    if (selectedCampaignId && String(as.campaignId) !== String(selectedCampaignId)) {
+      return false;
+    }
+    // Filter by row checkboxes (if checked)
+    if (selectedCampaignIds.size > 0 && !selectedCampaignIds.has(as.campaignId)) {
+      return false;
+    }
+    return true;
+  });
+
+  const filteredAds = allAds.filter(ad => {
+    // Filter by status filter
+    if (statusFilter === 'active' && !ad.active) return false;
+    if (statusFilter === 'paused' && ad.active) return false;
+    if (statusFilter === 'inactive' && ad.active) return false;
+
+    // Filter by parent adset breadcrumb
+    if (selectedAdSetId && ad.adsetId !== selectedAdSetId) {
+      return false;
+    }
+    // Filter by row checkbox selection of campaign
+    const parentAdSet = allAdSets.find(as => as.id === ad.adsetId);
+    if (selectedCampaignId && parentAdSet && String(parentAdSet.campaignId) !== String(selectedCampaignId)) {
+      return false;
+    }
+    if (selectedCampaignIds.size > 0 && parentAdSet && !selectedCampaignIds.has(parentAdSet.campaignId)) {
+      return false;
+    }
+    // Filter by row checkbox selection of adsets
+    if (selectedAdSetIds.size > 0 && !selectedAdSetIds.has(ad.adsetId)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Toggles and status controls
+  const toggleCampaign = (id: number | string) => {
+    setCampaigns(allCampaigns.map((c: any) => {
+      if (String(c.id) === String(id)) {
+        toast.success(c.active ? 'Campaign paused' : 'Campaign activated');
+        return { ...c, active: !c.active };
+      }
+      return c;
+    }));
+  };
+
+  const toggleAdSet = (id: string) => {
+    setAllAdSets(prev =>
+      prev.map(as => {
+        if (as.id === id) {
+          toast.success(as.active ? 'Ad set paused' : 'Ad set activated');
+          return { ...as, active: !as.active };
+        }
+        return as;
+      })
+    );
+  };
+
+  const toggleAd = (id: string) => {
+    setAllAds(prev =>
+      prev.map(ad => {
+        if (ad.id === id) {
+          toast.success(ad.active ? 'Ad paused' : 'Ad activated');
+          return { ...ad, active: !ad.active };
+        }
+        return ad;
+      })
+    );
+  };
+
+  const deleteCampaign = (id: number) => {
+    setCampaigns(allCampaigns.filter((x: any) => x.id !== id));
+    setPendingDelete(null);
+    setSelectedCampaignIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    toast.success('Campaign deleted');
+  };
+
+  // Row selection handler helpers
+  const handleSelectCampaign = (id: number | string) => {
+    setSelectedCampaignIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAdSet = (id: string) => {
+    setSelectedAdSetIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAd = (id: string) => {
+    setSelectedAdIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Header checkbox handler helpers (select all)
+  const isAllCampaignsSelected = filteredCampaigns.length > 0 && selectedCampaignIds.size === filteredCampaigns.length;
+  const isAllAdSetsSelected = filteredAdSets.length > 0 && selectedAdSetIds.size === filteredAdSets.length;
+  const isAllAdsSelected = filteredAds.length > 0 && selectedAdIds.size === filteredAds.length;
+
+  const handleSelectAllCampaigns = () => {
+    if (isAllCampaignsSelected) {
+      setSelectedCampaignIds(new Set());
+    } else {
+      setSelectedCampaignIds(new Set(filteredCampaigns.map(c => c.id)));
+    }
+  };
+
+  const handleSelectAllAdSets = () => {
+    if (isAllAdSetsSelected) {
+      setSelectedAdSetIds(new Set());
+    } else {
+      setSelectedAdSetIds(new Set(filteredAdSets.map(as => as.id)));
+    }
+  };
+
+  const handleSelectAllAds = () => {
+    if (isAllAdsSelected) {
+      setSelectedAdIds(new Set());
+    } else {
+      setSelectedAdIds(new Set(filteredAds.map(ad => ad.id)));
+    }
+  };
+
+  // Bulk actions triggers
+  const handleBulkActivate = () => {
+    if (activeTab === 'campaigns') {
+      setCampaigns(allCampaigns.map(c => selectedCampaignIds.has(c.id) ? { ...c, active: true } : c));
+      toast.success(`${selectedCampaignIds.size} Campaigns activated`);
+    } else if (activeTab === 'adsets') {
+      setAllAdSets(prev => prev.map(as => selectedAdSetIds.has(as.id) ? { ...as, active: true } : as));
+      toast.success(`${selectedAdSetIds.size} Ad Groups activated`);
+    } else {
+      setAllAds(prev => prev.map(ad => selectedAdIds.has(ad.id) ? { ...ad, active: true } : ad));
+      toast.success(`${selectedAdIds.size} Ads activated`);
+    }
+  };
+
+  const handleBulkPause = () => {
+    if (activeTab === 'campaigns') {
+      setCampaigns(allCampaigns.map(c => selectedCampaignIds.has(c.id) ? { ...c, active: false } : c));
+      toast.success(`${selectedCampaignIds.size} Campaigns paused`);
+    } else if (activeTab === 'adsets') {
+      setAllAdSets(prev => prev.map(as => selectedAdSetIds.has(as.id) ? { ...as, active: false } : as));
+      toast.success(`${selectedAdSetIds.size} Ad Groups paused`);
+    } else {
+      setAllAds(prev => prev.map(ad => selectedAdIds.has(ad.id) ? { ...ad, active: false } : ad));
+      toast.success(`${selectedAdIds.size} Ads paused`);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (activeTab === 'campaigns') {
+      setCampaigns(allCampaigns.filter(c => !selectedCampaignIds.has(c.id)));
+      toast.success(`${selectedCampaignIds.size} Campaigns deleted`);
+      setSelectedCampaignIds(new Set());
+    } else if (activeTab === 'adsets') {
+      setAllAdSets(prev => prev.filter(as => !selectedAdSetIds.has(as.id)));
+      toast.success(`${selectedAdSetIds.size} Ad Sets deleted`);
+      setSelectedAdSetIds(new Set());
+    } else {
+      setAllAds(prev => prev.filter(ad => !selectedAdIds.has(ad.id)));
+      toast.success(`${selectedAdIds.size} Ads deleted`);
+      setSelectedAdIds(new Set());
+    }
+  };
+
+  // Format currencies (INR) and helper calculations
+  const formatInr = (val: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(val || 0);
+  };
+
+  const activeCampaignDetails = campaigns.find(c => String(c.id) === String(selectedCampaignId));
+  const activeAdSetDetails = allAdSets.find(as => as.id === selectedAdSetId);
+
+  return (
+    <PageWrapper>
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+      BREADCRUMB CONTEXT TRACKING
+      // ═══════════════════════════════════════════════════════════════════════════════ */}
+      {(selectedCampaignId || selectedAdSetId) && (
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 mb-4 bg-white border border-slate-100 rounded-xl px-4 py-2.5 shadow-sm">
+          <span className="text-slate-400">Filtering:</span>
+          <button
+            onClick={() => { setSelectedCampaignId(null); setSelectedAdSetId(null); }}
+            className="hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0 p-0 text-[11px] font-bold text-slate-700"
+          >
+            All Campaigns
+          </button>
+          {activeCampaignDetails && (
+            <>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <button
+                onClick={() => setSelectedAdSetId(null)}
+                className={`hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0 p-0 text-[11px] font-bold ${selectedAdSetId ? 'text-slate-700' : 'text-indigo-600'}`}
+              >
+                {activeCampaignDetails.name}
+              </button>
+            </>
+          )}
+          {activeAdSetDetails && (
+            <>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <span className="text-indigo-600 font-bold max-w-56 truncate">{activeAdSetDetails.name}</span>
+            </>
+          )}
+          <button
+            onClick={() => { setSelectedCampaignId(null); setSelectedAdSetId(null); }}
+            className="ml-auto text-red-500 hover:text-red-700 text-[10px] font-bold cursor-pointer bg-transparent border-0"
+          >
+            Clear Filter
+          </button>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+      THREE MASTER TABS (CAMPAIGNS / AD SETS / ADS)
+      // ═══════════════════════════════════════════════════════════════════════════════ */}
+      <div className="flex items-center gap-1 border-b border-slate-200 mb-4 flex-wrap bg-white rounded-t-2xl p-1 pb-0 shadow-sm border-t border-x border-slate-100">
+        {[
+          { key: 'campaigns', label: 'Campaigns', count: filteredCampaigns.length, icon: <Folder className="w-4 h-4" /> },
+          { key: 'adsets', label: 'Ad sets', count: filteredAdSets.length, icon: <Layers className="w-4 h-4" /> },
+          { key: 'ads', label: 'Ads', count: filteredAds.length, icon: <Megaphone className="w-4 h-4" /> },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
+            className={`flex items-center gap-2 h-11 px-5 border-b-2 font-bold text-xs transition-all cursor-pointer ${
+              activeTab === tab.key
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/10'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+              activeTab === tab.key ? 'bg-indigo-100 text-indigo-700 font-bold' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+      ACTION / CRITERIA SUBHEADER (Meta Ads Replica Toolbar)
+      // ═══════════════════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white border-x border-b border-slate-150 p-3 rounded-b-2xl shadow-sm mb-5">
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          {activeTab === 'campaigns' && (
+            <button
+              onClick={() => { setEditingCampaign(null); setShowCampaignModal(true); }}
+              className="h-8 px-4 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm cursor-pointer border-0"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3px]" /> Create
+            </button>
+          )}
+
+          {/* Bulk Selection Actions Bar */}
+          {((activeTab === 'campaigns' && selectedCampaignIds.size > 0) ||
+            (activeTab === 'adsets' && selectedAdSetIds.size > 0) ||
+            (activeTab === 'ads' && selectedAdIds.size > 0)) && (
+            <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-lg">
+              <span className="text-[10px] font-bold text-indigo-700">
+                {activeTab === 'campaigns' ? selectedCampaignIds.size : activeTab === 'adsets' ? selectedAdSetIds.size : selectedAdIds.size} Selected
+              </span>
+              <div className="w-px h-4 bg-indigo-200 mx-1" />
+              <button onClick={handleBulkActivate} className="text-[10px] font-bold text-slate-700 hover:text-slate-900 cursor-pointer bg-transparent border-0 flex items-center gap-1">
+                <Play className="w-3 h-3 text-slate-500" /> Activate
+              </button>
+              <button onClick={handleBulkPause} className="text-[10px] font-bold text-slate-700 hover:text-slate-900 cursor-pointer bg-transparent border-0 flex items-center gap-1">
+                <Pause className="w-3 h-3 text-slate-500" /> Pause
+              </button>
+              <button onClick={handleBulkDelete} className="text-[10px] font-bold text-red-600 hover:text-red-700 cursor-pointer bg-transparent border-0 flex items-center gap-1">
+                <Trash2 className="w-3 h-3 text-red-500" /> Delete
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedCampaignIds(new Set());
+                  setSelectedAdSetIds(new Set());
+                  setSelectedAdIds(new Set());
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-red-600 cursor-pointer bg-transparent border-0 ml-1"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Client context quick pills (Campaign tab only) */}
+        {activeTab === 'campaigns' && !selectedClientId && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-1">Clients:</span>
+            {clients.map((client: any) => {
+              const count = allCampaigns.filter((c: any) => c.clientId === client.id).length;
+              return (
+                <button key={client.id} onClick={() => setSelectedClientId(client.id)}
+                  className={`flex items-center gap-1 h-6 px-2.5 rounded-lg border text-[10px] font-bold transition-all hover:shadow-sm cursor-pointer ${client.lightBg} ${client.lightBorder} ${client.textColor}`}>
+                  <span className={`w-1 h-1 rounded-full ${client.dotColor}`}></span>
+                  {client.name} <span className="opacity-60 font-semibold">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+      FILTER & CALENDAR CONTROL TOOLBAR (Meta Ads Style)
+      // ═══════════════════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-200 p-3 rounded-2xl shadow-sm mb-4 animate-fade-in">
+        {/* Left: Status Filter Pills */}
+        <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
+          {[
+            { id: 'all', label: 'All' },
+            { id: 'active', label: 'Active' },
+            { id: 'paused', label: 'Paused' },
+            { id: 'draft', label: 'Draft' },
+            { id: 'inactive', label: 'Non Active' },
+          ].map(status => (
+            <button
+              key={status.id}
+              onClick={() => setStatusFilter(status.id as any)}
+              className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                statusFilter === status.id
+                  ? 'bg-indigo-650 text-white shadow-sm font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+              }`}
+            >
+              {status.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right: Calendar Date Range Selector */}
+        <div className="relative w-full sm:w-auto self-stretch sm:self-auto flex items-center justify-end">
+          <button
+            onClick={() => setShowCalendarDropdown(!showCalendarDropdown)}
+            className="flex items-center gap-2 h-9 px-4 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm cursor-pointer w-full sm:w-auto justify-center sm:justify-start"
+          >
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <span>{selectedRangeLabel}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showCalendarDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Calendar Dropdown Popover */}
+          <AnimatePresence>
+            {showCalendarDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCalendarDropdown(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="absolute right-0 top-11 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 w-72 z-50 flex flex-col gap-3.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    Select Date Range
+                  </p>
+                  
+                  {/* Presets Grid */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'all', label: 'All Months' },
+                      { id: '2026-05', label: 'May 2026' },
+                      { id: '2026-04', label: 'April 2026' },
+                      { id: '2026-03', label: 'March 2026' },
+                      { id: '2026-02', label: 'February 2026' },
+                    ].map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          setSelectedMonth(preset.id);
+                          setSelectedRangeLabel(preset.label);
+                          setShowCalendarDropdown(false);
+                          toast.success(`Filtering for ${preset.label}`);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-[11px] font-bold border ${selectedMonth === preset.id ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-full h-px bg-slate-100" />
+
+                  {/* Custom Date Picker inputs */}
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      Custom Range
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-bold text-slate-455">Start Date</span>
+                        <input
+                          type="date"
+                          defaultValue="2026-01-01"
+                          className="h-8 border border-slate-200 rounded-lg px-2 text-[11px] font-bold text-slate-700 focus:outline-indigo-650 w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-bold text-slate-455">End Date</span>
+                        <input
+                          type="date"
+                          defaultValue="2026-05-26"
+                          className="h-8 border border-slate-200 rounded-lg px-2 text-[11px] font-bold text-slate-700 focus:outline-indigo-650 w-full"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedMonth('all');
+                        setSelectedRangeLabel('All Months');
+                        setShowCalendarDropdown(false);
+                        toast.success('Month filter reset');
+                      }}
+                      className="h-8 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer border-0 mt-1 shadow-sm"
+                    >
+                      Reset Month Filter
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+      MASTER SPREADSHEET TABLE
+      // ═══════════════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs font-['DM_Sans']">
+            {/* Table Header */}
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold select-none h-11">
+                {/* Checkbox Column */}
+                <th className="pl-4 pr-2 w-10 text-center border-r border-slate-100">
+                  <button
+                    onClick={
+                      activeTab === 'campaigns' ? handleSelectAllCampaigns :
+                      activeTab === 'adsets' ? handleSelectAllAdSets : handleSelectAllAds
+                    }
+                    className="flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0"
+                  >
+                    {
+                      activeTab === 'campaigns' ? (isAllCampaignsSelected ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />) :
+                      activeTab === 'adsets' ? (isAllAdSetsSelected ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />) :
+                      (isAllAdsSelected ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />)
+                    }
+                  </button>
+                </th>
+                {/* Removed On/Off Column */}
+                {/* Dynamic Title Header */}
+                <th className="px-4 py-3 font-bold border-r border-slate-150 min-w-80">
+                  <div className="flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer">
+                    {activeTab === 'campaigns' ? 'Campaign Name' : activeTab === 'adsets' ? 'Ad Set Name' : 'Ad Name'}
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-300" />
+                  </div>
+                </th>
+                <th className="px-4 py-3 font-bold border-r border-slate-100">Delivery</th>
+                <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">Results (Conversions)</th>
+                <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">CTR / Clicks</th>
+                <th className="px-4 py-3 font-bold border-r border-slate-100">Budget</th>
+                <th className="px-4 py-3 font-bold border-r border-slate-100 text-right">Amount Spent</th>
+                <th className="px-4 py-3 font-bold text-center">CPC</th>
+              </tr>
+            </thead>
+
+            {/* Table Body */}
+            <tbody>
+              {/* CAMPAIGNS RENDERING */}
+              {activeTab === 'campaigns' && (
+                filteredCampaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                      No campaigns found matching filter context.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCampaigns.map(c => {
+                    const campaignClient = clients.find((cl: any) => cl.id === c.clientId);
+                    const isChecked = selectedCampaignIds.has(c.id);
+
+                    return (
+                      <tr
+                        key={c.id}
+                        className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors h-14 ${
+                          isChecked ? 'bg-indigo-50/20' : ''
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="pl-4 pr-2 text-center border-r border-slate-100">
+                          <button
+                            onClick={() => handleSelectCampaign(c.id)}
+                            className="flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0"
+                          >
+                            {isChecked ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
+                          </button>
+                        </td>
+
+                        {/* Campaign Name (Interactive Link) */}
+                        <td className="px-4 py-2.5 font-bold border-r border-slate-150">
+                          <div className="flex items-start gap-2 max-w-sm">
+                            <PlatformDot platform={c.channel} size="sm" className="mt-0.5" />
+                            <div className="min-w-0">
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignId(c.id);
+                                  setActiveTab('adsets');
+                                  // Auto-check this campaign to restrict scope
+                                  setSelectedCampaignIds(new Set([c.id]));
+                                }}
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-left cursor-pointer p-0 bg-transparent border-0 block truncate max-w-[280px]"
+                              >
+                                {c.name}
+                              </button>
+                              {campaignClient && (
+                                <span className={`inline-block text-[9px] font-extrabold tracking-wide uppercase px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 mt-1 ${campaignClient.textColor}`}>
+                                  {campaignClient.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Delivery Status */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-700">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${
+                              c.active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-350'
+                            }`} />
+                            {c.active ? 'Active' : 'Paused'}
+                          </div>
+                        </td>
+
+                        {/* Results */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{c.conv || 0}</p>
+                          <span className="text-[10px] text-slate-400 font-semibold">Leads (Form)</span>
+                        </td>
+
+                        {/* CTR / Clicks */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{c.ctr}%</p>
+                          <span className="text-[10px] text-slate-400 font-semibold font-['JetBrains_Mono']">{c.clicks?.toLocaleString()} clicks</span>
+                        </td>
+
+                        {/* Budget */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-600">
+                          <p>₹{Math.round(c.budget / 30).toLocaleString('en-IN')}</p>
+                          <span className="text-[10px] text-slate-400 font-semibold block">Daily</span>
+                        </td>
+
+                        {/* Amount Spent */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-right font-bold text-slate-850 font-['JetBrains_Mono']">
+                          {formatInr(c.spend)}
+                        </td>
+
+                        {/* CPC */}
+                        <td className="px-4 py-2.5 text-center font-bold font-['JetBrains_Mono'] text-indigo-650 bg-indigo-50/5">
+                           {c.clicks > 0 ? `₹${(c.spend / c.clicks).toFixed(2)}` : c.cpc ? `₹${c.cpc.toFixed(2)}` : 'N/A'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )
+              )}
+
+              {/* AD SETS RENDERING */}
+              {activeTab === 'adsets' && (
+                isLoadingAdSets ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
+                      <div className="flex items-center justify-center gap-2">
+                        <Layers className="w-5 h-5 animate-spin" />
+                        Fetching real ad sets from Meta Ads Manager...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAdSets.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                      No Ad Sets found. Click on the "Campaigns" tab to select a campaign first.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAdSets.map(as => {
+                    const isChecked = selectedAdSetIds.has(as.id);
+                    const isStatusCritical = as.status === 'critical';
+
+                    return (
+                      <tr
+                        key={as.id}
+                        className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors h-14 ${
+                          isChecked ? 'bg-indigo-50/20' : ''
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="pl-4 pr-2 text-center border-r border-slate-100">
+                          <button
+                            onClick={() => handleSelectAdSet(as.id)}
+                            className="flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0"
+                          >
+                            {isChecked ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
+                          </button>
+                        </td>
+
+                        {/* Removed On/Off Cell */}
+
+                        {/* Ad Set Name (Interactive Link) */}
+                        <td className="px-4 py-2.5 font-bold border-r border-slate-150">
+                          <div className="flex items-start gap-2 max-w-sm">
+                            <Layers className="w-3.5 h-3.5 text-violet-500 mt-1" />
+                            <div className="min-w-0">
+                              <button
+                                onClick={() => {
+                                  setSelectedAdSetId(as.id);
+                                  setActiveTab('ads');
+                                  setSelectedAdSetIds(new Set([as.id]));
+                                }}
+                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-left cursor-pointer p-0 bg-transparent border-0 block truncate max-w-[280px]"
+                              >
+                                {as.name}
+                              </button>
+                              <span className="inline-block text-[9px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                                Campaign: {as.campaignName}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Delivery */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-700">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${
+                              as.active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-350'
+                            }`} />
+                            {as.active ? 'Active' : 'Paused'}
+                          </div>
+                        </td>
+
+                        {/* Results */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{as.conv || 0}</p>
+                          <span className="text-[10px] text-slate-400 font-semibold">Leads (Form)</span>
+                        </td>
+
+                        {/* CTR / Clicks */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{((as.clicks / as.impressions) * 100).toFixed(2)}%</p>
+                          <span className="text-[10px] text-slate-400 font-semibold font-['JetBrains_Mono']">{as.clicks?.toLocaleString()} clicks</span>
+                        </td>
+
+                        {/* Budget */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-500">
+                          Using ad set budget
+                        </td>
+
+                        {/* Spend */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-right font-bold text-slate-850 font-['JetBrains_Mono']">
+                          {formatInr(as.spend)}
+                        </td>
+
+                        {/* CPC */}
+                        <td className="px-4 py-2.5 text-center font-bold font-['JetBrains_Mono'] text-indigo-650 bg-indigo-50/5">
+                           {as.clicks > 0 ? `₹${(as.spend / as.clicks).toFixed(2)}` : as.cpc ? `₹${as.cpc.toFixed(2)}` : 'N/A'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )
+              )}
+
+              {/* ADS CREATIVE RENDERING */}
+              {activeTab === 'ads' && (
+                isLoadingAds ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
+                      <div className="flex items-center justify-center gap-2">
+                        <Megaphone className="w-5 h-5 animate-spin" />
+                        Fetching active creative assets & insights from Meta Ads Manager...
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAds.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                      No Creative Ads found. Try selecting an Ad Set first.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAds.map(ad => {
+                    const isChecked = selectedAdIds.has(ad.id);
+                    const isWarning = ad.status === 'warning';
+
+                    return (
+                      <tr
+                        key={ad.id}
+                        className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors h-14 ${
+                          isChecked ? 'bg-indigo-50/20' : ''
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="pl-4 pr-2 text-center border-r border-slate-100">
+                          <button
+                            onClick={() => handleSelectAd(ad.id)}
+                            className="flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors cursor-pointer bg-transparent border-0"
+                          >
+                            {isChecked ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
+                          </button>
+                        </td>
+
+                        {/* Removed On/Off Cell */}
+
+                        {/* Ad Name & Preview */}
+                        <td className="px-4 py-2.5 font-bold border-r border-slate-150">
+                          <div className="flex items-start gap-3.5 max-w-sm">
+                            {ad.imageUrl && !imageErrors[ad.id] ? (
+                              <img
+                                src={ad.imageUrl}
+                                alt={ad.name}
+                                onClick={() => setSelectedAdForPreview(ad)}
+                                className="w-14 h-9 object-cover rounded-lg flex-shrink-0 shadow-sm border border-slate-100 bg-slate-50 cursor-zoom-in hover:scale-105 active:scale-95 transition-all animate-fade-in"
+                                onError={() => {
+                                  setImageErrors(prev => ({ ...prev, [ad.id]: true }));
+                                }}
+                              />
+                            ) : (
+                              <div 
+                                onClick={() => setSelectedAdForPreview(ad)}
+                                className={`w-14 h-9 bg-gradient-to-br ${ad.bgGradient || 'from-indigo-500 to-purple-650'} rounded-lg flex items-center justify-center text-white flex-shrink-0 shadow-inner border border-slate-100 cursor-zoom-in hover:scale-105 active:scale-95 transition-all`}
+                              >
+                                <Tv className="w-4 h-4 stroke-[2px]" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-slate-800 font-bold truncate max-w-[220px]">{ad.name}</p>
+                              <span className="text-[9px] text-slate-450 truncate block mt-0.5 max-w-[220px] font-normal italic">
+                                "{ad.headline}"
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Delivery */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-700">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${
+                              ad.active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-350'
+                            }`} />
+                            {ad.active ? 'Active' : 'Paused'}
+                          </div>
+                        </td>
+
+                        {/* Results */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{ad.conv || 0}</p>
+                          <span className="text-[10px] text-slate-400 font-semibold">Leads (Form)</span>
+                        </td>
+
+                        {/* CTR / Clicks */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <p className="font-bold text-slate-800">{ad.ctr}%</p>
+                          <span className="text-[10px] text-slate-400 font-semibold font-['JetBrains_Mono']">{ad.clicks?.toLocaleString()} clicks</span>
+                        </td>
+
+                        {/* Budget */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 font-semibold text-slate-500">
+                          Using ad set budget
+                        </td>
+
+                        {/* Spent */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-right font-bold text-slate-850 font-['JetBrains_Mono']">
+                          {formatInr(ad.spend)}
+                        </td>
+
+                        {/* CPC */}
+                        <td className="px-4 py-2.5 text-center font-bold font-['JetBrains_Mono'] text-indigo-650 bg-indigo-50/5">
+                           {ad.clicks > 0 ? `₹${(ad.spend / ad.clicks).toFixed(2)}` : ad.cpc ? `₹${ad.cpc.toFixed(2)}` : 'N/A'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {pendingDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+            <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center mb-4"><Trash2 className="w-5 h-5 text-red-600" /></div>
+            <h3 className="font-bold text-slate-900 mb-1">Delete Campaign?</h3>
+            <p className="text-sm text-slate-500 mb-5">This will permanently remove the campaign. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setPendingDelete(null)} className="flex-1 h-10 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50 cursor-pointer">Cancel</button>
+              <button onClick={() => deleteCampaign(pendingDelete)} className="flex-1 h-10 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 cursor-pointer">Delete</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Premium Dynamic Ad Creative Lightbox Overlay Modal */}
+      <AnimatePresence>
+        {selectedAdForPreview && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setSelectedAdForPreview(null)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl relative border border-slate-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button 
+                onClick={() => setSelectedAdForPreview(null)}
+                className="absolute top-4 right-4 w-9 h-9 bg-black/40 hover:bg-black/60 rounded-full flex items-center justify-center text-white backdrop-blur-sm transition-all border-0 cursor-pointer z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Large Media Container */}
+              <div className="relative max-h-[350px] min-h-[220px] w-full bg-slate-950 flex items-center justify-center overflow-hidden border-b border-slate-100">
+                {selectedAdForPreview.imageUrl && !imageErrors[selectedAdForPreview.id] ? (
+                  <img 
+                    src={selectedAdForPreview.imageUrl} 
+                    alt="Creative Preview" 
+                    className="w-full h-full max-h-[350px] object-contain"
+                    onError={() => {
+                      setImageErrors(prev => ({ ...prev, [selectedAdForPreview.id]: true }));
+                    }}
+                  />
+                ) : (
+                  <div className={`w-full aspect-video min-h-[220px] max-h-[350px] bg-gradient-to-br ${selectedAdForPreview.bgGradient || 'from-indigo-500 to-purple-650'} flex flex-col items-center justify-center text-white p-6 text-center`}>
+                    <Tv className="w-12 h-12 stroke-[1.5px] mb-2 drop-shadow-md animate-pulse" />
+                    <p className="text-xs font-bold opacity-80 tracking-wide uppercase">Mock Media Representation</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Copywriting Details */}
+              <div className="p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[9px] font-extrabold tracking-wider uppercase bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-full">
+                    {selectedAdForPreview.imageUrl && !imageErrors[selectedAdForPreview.id] ? 'Meta Graph API Ad Creative' : 'Dynamic Mock Creative'}
+                  </span>
+                </div>
+                
+                <h3 className="font-extrabold text-slate-900 text-base leading-tight mb-3">
+                  {selectedAdForPreview.name}
+                </h3>
+                
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4 shadow-inner">
+                  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Headline:
+                  </p>
+                  <p className="text-slate-800 font-bold text-sm mb-3">
+                    {selectedAdForPreview.headline}
+                  </p>
+                  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Primary Text (Copy):
+                  </p>
+                  <p className="text-slate-600 text-xs leading-relaxed font-semibold">
+                    {selectedAdForPreview.copy}
+                  </p>
+                </div>
+
+                {/* Metrics detail inside lightbox */}
+                <div className="grid grid-cols-3 gap-2 text-center bg-indigo-50/20 border border-indigo-100/50 rounded-2xl p-3">
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Spend</p>
+                    <p className="font-extrabold text-slate-850 mt-0.5 font-['JetBrains_Mono'] text-xs">
+                      {formatInr(selectedAdForPreview.spend)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CTR</p>
+                    <p className="font-extrabold text-slate-850 mt-0.5 font-['JetBrains_Mono'] text-xs">
+                      {selectedAdForPreview.ctr}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-455 uppercase tracking-wider">CPC</p>
+                    <p className="font-extrabold text-indigo-700 mt-0.5 font-['JetBrains_Mono'] text-xs">
+                      {selectedAdForPreview.clicks > 0 ? `₹${(selectedAdForPreview.spend / selectedAdForPreview.clicks).toFixed(2)}` : selectedAdForPreview.cpc ? `₹${selectedAdForPreview.cpc.toFixed(2)}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </PageWrapper>
+  );
+}
+

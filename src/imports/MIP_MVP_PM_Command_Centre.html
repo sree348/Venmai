@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIP — MVP PM Command Centre</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f4f6f9;color:#1a1a1a;padding:24px;min-height:100vh}
+.wrap{max-width:960px;margin:0 auto}
+.page-title{font-size:22px;font-weight:600;color:#1A56A0;margin-bottom:4px}
+.page-sub{font-size:14px;color:#5F5E5A;margin-bottom:20px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #ddd;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 16px;font-size:13px;cursor:pointer;border-radius:6px 6px 0 0;border:1px solid transparent;color:#5F5E5A;background:transparent;font-family:inherit}
+.tab.on{background:#fff;border-color:#ddd;border-bottom-color:#fff;color:#1a1a1a;font-weight:500;margin-bottom:-1px}
+.tab:hover:not(.on){background:#eef2f7}
+.pane{display:none}.pane.on{display:block}
+.day-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:16px}
+.day{background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 8px;text-align:center;cursor:pointer;transition:border-color .15s}
+.day:hover{border-color:#1A56A0}
+.day.today{border:2px solid #1A56A0}
+.day-num{font-size:11px;color:#888;margin-bottom:3px}
+.day-label{font-size:12px;font-weight:500;color:#1a1a1a}
+.day-tag{font-size:10px;margin-top:4px;padding:2px 5px;border-radius:4px;display:inline-block}
+.tag-dev{background:#dbeafe;color:#1e40af}
+.tag-pm{background:#fef3c7;color:#92400e}
+.tag-qa{background:#fee2e2;color:#991b1b}
+.tag-done{background:#d1fae5;color:#065f46}
+.tag-both{background:#d1fae5;color:#065f46}
+.detail{background:#f8fafc;border-radius:10px;border:1px solid #ddd;padding:16px 20px;margin-bottom:16px}
+.detail-head{font-size:14px;font-weight:500;margin-bottom:12px;color:#1a1a1a}
+.task-list{display:flex;flex-direction:column;gap:6px}
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;transition:background .1s}
+.task:hover{background:#f9fafb}
+.task.done-t .task-text{text-decoration:line-through;color:#aaa}
+.task-cb{width:16px;height:16px;border-radius:4px;border:1.5px solid #ccc;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;background:#f9f9f9}
+.task-cb.checked{background:#d1fae5;border-color:#34d399}
+.task-cb.checked::after{content:'✓';font-size:10px;color:#065f46}
+.task-text{font-size:13px;color:#1a1a1a;line-height:1.4}
+.task-owner{font-size:11px;color:#888;margin-top:2px}
+.pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;margin-left:6px;vertical-align:middle}
+.pill-pm{background:#fef3c7;color:#92400e}
+.pill-dev{background:#dbeafe;color:#1e40af}
+.pill-both{background:#d1fae5;color:#065f46}
+.pill-qa{background:#fee2e2;color:#991b1b}
+.progress-wrap{margin-bottom:20px}
+.progress-bar{height:6px;background:#e5e7eb;border-radius:3px;margin:8px 0}
+.progress-fill{height:100%;border-radius:3px;background:#34d399;transition:width .3s}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stat{background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:12px 16px}
+.stat-n{font-size:22px;font-weight:500;color:#1a1a1a}
+.stat-l{font-size:11px;color:#888;margin-top:2px}
+.module-table{width:100%;border-collapse:collapse;font-size:13px}
+.module-table th{text-align:left;font-size:11px;font-weight:500;color:#888;padding:6px 10px;border-bottom:1px solid #e5e7eb;background:#f8fafc}
+.module-table td{padding:10px 10px;border-bottom:1px solid #f0f0f0;color:#1a1a1a;vertical-align:top}
+.module-table tr:last-child td{border-bottom:none}
+.module-table tr:hover td{background:#f9fafb}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+.dot-green{background:#22c55e}.dot-amber{background:#f59e0b}.dot-gray{background:#9ca3af}
+.q-card{background:#fff;border-radius:10px;border:1px solid #e5e7eb;padding:14px 18px;margin-bottom:10px}
+.q-title{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:6px}
+.q-answer{font-size:13px;color:#5F5E5A;line-height:1.6}
+.q-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;margin-bottom:8px;display:inline-block}
+.section-label{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:16px 0 8px}
+.warn-box{background:#fffbeb;border-left:3px solid #f59e0b;padding:10px 14px;margin-bottom:10px}
+.warn-box p{font-size:13px;color:#92400e;line-height:1.5}
+.info-box{background:#eff6ff;border-left:3px solid #3b82f6;padding:10px 14px;margin-bottom:10px}
+.info-box p{font-size:13px;color:#1e40af;line-height:1.5}
+.success-box{background:#ecfdf5;border-left:3px solid #34d399;padding:10px 14px;margin-bottom:10px}
+.success-box p{font-size:13px;color:#065f46;line-height:1.5}
+.danger-badge{background:#fee2e2;color:#991b1b}
+.warning-badge{background:#fef3c7;color:#92400e}
+.info-badge{background:#dbeafe;color:#1e40af}
+.success-badge{background:#d1fae5;color:#065f46}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="page-title">MIP — MVP PM Command Centre</div>
+<div class="page-sub">Venpep Group · 8-day sprint to Wednesday launch · PM + Tech team handoff tracker</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="show('sprint',this)">Sprint plan</div>
+  <div class="tab" onclick="show('modules',this)">MVP modules</div>
+  <div class="tab" onclick="show('handoff',this)">Tech handoff</div>
+  <div class="tab" onclick="show('decisions',this)">PM decisions</div>
+  <div class="tab" onclick="show('dod',this)">Definition of done</div>
+</div>
+
+<!-- SPRINT -->
+<div id="pane-sprint" class="pane on">
+  <div class="stat-row">
+    <div class="stat"><div class="stat-n" id="tasks-done">0</div><div class="stat-l">Tasks checked off</div></div>
+    <div class="stat"><div class="stat-n" id="tasks-total">0</div><div class="stat-l">Total tasks</div></div>
+    <div class="stat"><div class="stat-n">Wed</div><div class="stat-l">Launch deadline</div></div>
+    <div class="stat"><div class="stat-n" id="days-left">8</div><div class="stat-l">Days remaining</div></div>
+  </div>
+  <div class="progress-wrap">
+    <div style="font-size:12px;color:#888">Overall progress</div>
+    <div class="progress-bar"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+  </div>
+
+  <div class="day-grid">
+    <div class="day today" onclick="loadDay(0)"><div class="day-num">Day 1</div><div class="day-label">Today</div><div class="day-tag tag-pm">PM</div></div>
+    <div class="day" onclick="loadDay(1)"><div class="day-num">Day 2</div><div class="day-label">Fri</div><div class="day-tag tag-dev">Dev</div></div>
+    <div class="day" onclick="loadDay(2)"><div class="day-num">Day 3</div><div class="day-label">Sat</div><div class="day-tag tag-dev">Dev</div></div>
+    <div class="day" onclick="loadDay(3)"><div class="day-num">Day 4</div><div class="day-label">Sun</div><div class="day-tag tag-dev">Dev</div></div>
+    <div class="day" onclick="loadDay(4)"><div class="day-num">Day 5</div><div class="day-label">Mon</div><div class="day-tag tag-both">PM+Dev</div></div>
+    <div class="day" onclick="loadDay(5)"><div class="day-num">Day 6</div><div class="day-label">Tue</div><div class="day-tag tag-qa">QA</div></div>
+    <div class="day" onclick="loadDay(6)"><div class="day-num">Day 7</div><div class="day-label">Tue</div><div class="day-tag tag-qa">QA</div></div>
+    <div class="day" onclick="loadDay(7)"><div class="day-num">Day 8</div><div class="day-label">Wed</div><div class="day-tag tag-done">Launch</div></div>
+  </div>
+
+  <div class="detail" id="day-detail">
+    <div class="detail-head" id="day-title">Click a day above to see its tasks</div>
+    <div class="task-list" id="day-tasks"></div>
+  </div>
+</div>
+
+<!-- MODULES -->
+<div id="pane-modules" class="pane">
+  <div class="section-label">MVP modules — what must be live by Wednesday</div>
+  <table class="module-table">
+    <thead><tr><th style="width:26%">Module</th><th style="width:8%">Priority</th><th style="width:32%">Definition of done</th><th style="width:22%">Dev owner</th><th style="width:12%">Status</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Agentic AI Brain</strong><br><span style="font-size:11px;color:#888">Core analysis engine</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Paste Meta or Google CSV → receive health score + root-cause paragraph + action plan + client narrative in &lt;30 seconds</td><td>AI/backend lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Campaign Health Score</strong><br><span style="font-size:11px;color:#888">3-state verdict engine</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Score computed correctly across 6 inputs. Healthy / At Risk / Critical verdict at top of every output</td><td>AI/backend lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>India/SEA Benchmark Layer</strong><br><span style="font-size:11px;color:#888">System prompt benchmarks</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Benchmarks encoded per platform + industry. Seasonal modifiers for Diwali/IPL present. Wrong diagnoses from global averages eliminated</td><td>PM (prompt)</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Client-Ready Paragraph</strong><br><span style="font-size:11px;color:#888">One-click copy output</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Fixed format: status + 2 diagnostic sentences + 1 action. One-click copy. Appears on every analysis</td><td>Frontend + AI lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Brand Profile / Context Memory</strong><br><span style="font-size:11px;color:#888">Per-client context store</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Profile fields auto-injected into every analysis prompt. No re-entry needed per session</td><td>Backend + PM</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Data Quality Validation</strong><br><span style="font-size:11px;color:#888">Pre-analysis input check</span></td><td><span class="pill pill-pm" style="margin:0">P0</span></td><td>Missing column detection before analysis runs. Specific warning per missing field. Blocks analysis on bad data</td><td>Backend lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Multi-Tenant Workspace</strong><br><span style="font-size:11px;color:#888">PRD v1.1 Feature 11</span></td><td><span class="pill pill-dev" style="margin:0">P1</span></td><td>Workspace → Client Account hierarchy live. RLS enforced. Data isolation verified</td><td>Backend lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>RBAC + Invite Links</strong><br><span style="font-size:11px;color:#888">PRD v1.1 Feature 12</span></td><td><span class="pill pill-dev" style="margin:0">P1</span></td><td>5 roles working. Invite email &lt;2 min. Shareable link with role + expiry. Workspace switcher functional</td><td>Backend lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>Core Integrations (3 minimum)</strong><br><span style="font-size:11px;color:#888">Meta, Google, manual paste</span></td><td><span class="pill pill-dev" style="margin:0">P1</span></td><td>Meta Ads OAuth live. Google Ads OAuth live. Manual CSV paste works for all platforms</td><td>Integration lead</td><td><span class="status-dot dot-amber"></span>Not started</td></tr>
+      <tr><td><strong>AI Analysis History</strong><br><span style="font-size:11px;color:#888">Last 20 per client</span></td><td><span class="pill pill-both" style="margin:0">P2</span></td><td>Last 20 analyses stored per client. Accessible from AI Brain sidebar. Timestamps correct</td><td>Backend + frontend</td><td><span class="status-dot dot-gray"></span>Stretch goal</td></tr>
+    </tbody>
+  </table>
+  <div class="warn-box" style="margin-top:16px">
+    <p>P0 modules are non-negotiable. If all six P0 modules are not live and working on Wednesday, the MVP is not done — regardless of how good everything else looks.</p>
+  </div>
+</div>
+
+<!-- HANDOFF -->
+<div id="pane-handoff" class="pane">
+  <div class="section-label">What to tell the tech team today — in this order</div>
+
+  <div class="q-card">
+    <div class="q-badge info-badge">Open with this — the north star</div>
+    <div class="q-title">The one sentence that frames everything</div>
+    <div class="q-answer">"MIP is not a dashboard tool. It is a marketing analyst. The AI output is the product. Every technical decision this week should ask: does this make the AI output faster, more accurate, or easier to act on? If it doesn't serve that — it's not in scope for MVP."</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge warning-badge">Clarify scope boundary</div>
+    <div class="q-title">What is NOT in MVP scope</div>
+    <div class="q-answer">White-label reporting, PDF export, PPT export, 100+ connectors, predictive analytics, agentic actions (AI executing ad changes), A/B test tracking, audience overlap detection, LTV cohort analysis. None of these are in scope this week. If the team raises any of them — write it on the roadmap and move on.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge success-badge">AI system prompt — PM owns this</div>
+    <div class="q-title">What you need to hand the dev team on Day 1</div>
+    <div class="q-answer">The system prompt draft. This is your job, not theirs. The dev team integrates the API — you write the instructions that go into it. The prompt must encode: (1) diagnostic tier order — ROAS first, then CTR/CVR, then creative, (2) India/SEA benchmarks by platform, (3) the 12 named root causes with trigger conditions and prescribed actions, (4) the health score formula, (5) the client paragraph format. Without this, the dev team cannot build a working AI feature.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge info-badge">Data model — agree on Day 1</div>
+    <div class="q-title">The three data model decisions that block everything else</div>
+    <div class="q-answer">1. Brand profile schema — what fields does a client profile contain? (industry, objective, monthly spend, target CPA, platform mix). Agree this before any backend work starts.<br><br>2. Analysis output schema — what does the JSON response from the AI look like? (health_score, health_state, what_is_working, root_causes[], action_plan[], client_paragraph).<br><br>3. Workspace/client account hierarchy — follow PRD v1.1 exactly. No deviations without PM sign-off.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge danger-badge">Blocker escalation rule</div>
+    <div class="q-title">How blockers get raised and resolved</div>
+    <div class="q-answer">Any blocker that cannot be resolved within 2 hours gets escalated to you directly. You make the call — not the dev team. The rule: never let a blocker sit overnight. If the team is stuck on something on Friday at 5pm, that conversation must happen Friday, not Monday. A Monday discovery costs 60 hours.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge warning-badge">Edge cases — answer before they ask</div>
+    <div class="q-title">The five questions dev will hit mid-build</div>
+    <div class="q-answer">1. What happens when pasted data has no conversion columns? → Block analysis, show specific warning, list missing columns.<br><br>2. What if a client profile is incomplete? → Run analysis with a warning flag, note which context was missing.<br><br>3. What if ROAS data is missing but CTR/CVR data exists? → Run partial analysis, clearly label what was and wasn't assessed.<br><br>4. What if the AI returns a non-structured response? → Retry once, then show graceful error: "Analysis incomplete — please try again."<br><br>5. What platforms need to work at launch? → Meta Ads and Google Ads OAuth + manual CSV paste for everything else.</div>
+  </div>
+</div>
+
+<!-- DECISIONS -->
+<div id="pane-decisions" class="pane">
+  <div class="section-label">PM decisions you must make before dev starts — not during</div>
+  <div class="warn-box">
+    <p>These are the decisions that, if left open, the dev team will make using the wrong defaults. Make all six today.</p>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge danger-badge">Decision 1 — AI model</div>
+    <div class="q-title">Which model powers the AI Brain?</div>
+    <div class="q-answer">Recommendation: Claude Sonnet (claude-sonnet-4-6). Best balance of analytical depth and response speed for the &lt;30 second target. The wrong default is letting the dev team pick without PM input — they will optimise for cost, not quality. Quality of the AI output is the product. Own this decision.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge danger-badge">Decision 2 — Output format contract</div>
+    <div class="q-title">What does a valid MIP analysis output look like?</div>
+    <div class="q-answer">Define the exact JSON schema before build starts. Required fields: health_state (Healthy/At Risk/Critical), health_score (0–100), what_is_working (string), root_causes (array, min 1 max 3), action_plan (array, 3–5 items with reason + expected_impact), client_paragraph (string, 3–4 sentences). If the AI response doesn't contain all six — it is rejected and retried. This is a PM specification, not a dev decision.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge warning-badge">Decision 3 — Input method priority</div>
+    <div class="q-title">CSV paste only, or OAuth integrations too?</div>
+    <div class="q-answer">Both — but prioritise in this order. Manual CSV paste must work perfectly on Day 1. This is how Rohan uses MIP today and how the pilot demo runs. Meta Ads OAuth and Google Ads OAuth are Day 3–4 deliverables. If OAuth slips, paste still works and the demo is still possible. If you invert this priority and OAuth slips, you have nothing to show.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge warning-badge">Decision 4 — Prototype fidelity</div>
+    <div class="q-title">Does MVP match the prototype exactly?</div>
+    <div class="q-answer">No — and be explicit about this with the dev team. The prototype is the Phase 1 target interface. For MVP, the screens that must work are: Dashboard (health score overview), AI Brain (chat + analysis output), Integrations (connect Meta + Google + paste). Dashboards, Reports, Alerts, and full Settings can show "Coming soon" states. The demo path is: login → see client dashboard → open AI Brain → paste data → see output. That path must be flawless.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge info-badge">Decision 5 — Demo data</div>
+    <div class="q-title">What data runs in the live demo?</div>
+    <div class="q-answer">Pick one real client. One real campaign export from the last 7 days. Rohan pastes it in the room — not a scripted demo, not a screen recording. Real data, live AI, in front of the agency owner. This means the system prompt must be tested on that exact client's data before Wednesday. Run the demo data through MIP at least 10 times during Days 5–6 QA and verify the output makes sense for that specific client context.</div>
+  </div>
+
+  <div class="q-card">
+    <div class="q-badge info-badge">Decision 6 — Success definition</div>
+    <div class="q-title">What does "MVP approved" look like?</div>
+    <div class="q-answer">The agency owner says yes to Phase 1 investment after seeing Rohan paste real data and receive a health score, root-cause diagnosis, action plan, and client paragraph in under 30 seconds — without any prompting or explanation from you. If you have to explain what the output means, the product hasn't done its job. That is your definition of done for Wednesday.</div>
+  </div>
+</div>
+
+<!-- DOD -->
+<div id="pane-dod" class="pane">
+  <div class="section-label">Definition of done — the exact gate criteria for Wednesday</div>
+  <div class="success-box">
+    <p>MVP is done when Rohan can paste any Meta or Google export and receive all five outputs — health score, what's working, root cause with named diagnosis, action plan (3–5 numbered items), and client paragraph — in under 30 seconds. All five must be present. One missing = MVP is not done.</p>
+  </div>
+
+  <div class="section-label">The 10-point launch checklist</div>
+  <div class="task-list" id="dod-list"></div>
+
+  <div class="section-label" style="margin-top:24px">AI output quality bar — what "good" looks like</div>
+  <div class="q-card">
+    <div class="q-title">Root cause specificity test</div>
+    <div class="q-answer"><strong>Wrong:</strong> "CTR is low."<br><strong>Right:</strong> "CTR is 0.4% against India Meta benchmark of 0.8%. Frequency is 3.2 — this is creative fatigue. Recommended action: pause ad sets above frequency 3 and launch 2 fresh creative variants targeting the same audience. Expected CTR recovery: 7–10 days."</div>
+  </div>
+  <div class="q-card">
+    <div class="q-title">Client paragraph quality test</div>
+    <div class="q-answer"><strong>Wrong:</strong> "Your campaign performance needs improvement."<br><strong>Right:</strong> "Your Meta campaigns delivered a ROAS of 2.8x last week, down from 3.6x the prior week, driven by creative fatigue on your top-performing ad set (frequency 3.4). We recommend pausing the fatigued creative and launching two fresh variants this week — expected to recover ROAS to 3.2x within 7 days."</div>
+  </div>
+  <div class="q-card">
+    <div class="q-title">Health score consistency test</div>
+    <div class="q-answer">Run the same data through MIP 3 times. The health score should be within ±3 points each time. If it varies by more than 5 points across runs on the same data — the prompt is non-deterministic and needs a temperature fix (set temperature to 0.2 or lower for scoring outputs).</div>
+  </div>
+  <div class="warn-box" style="margin-top:16px">
+    <p>If any of the 10 checklist items are incomplete on Wednesday morning, escalate immediately. A partial demo with acknowledged gaps is better than a failed live demo.</p>
+  </div>
+</div>
+
+<script>
+const days=[
+  {title:"Day 1 — Today: PM heads-up and system prompt",tasks:[
+    {t:"Brief the tech team: what MIP is, what the AI Brain does, what MVP scope is",o:"PM",own:"pm"},
+    {t:"Share prototype (MIP_Prototype.html), BRD v1.0, PRD v1.1 with dev team",o:"PM",own:"pm"},
+    {t:"Agree on brand profile schema — list all required fields before dev touches backend",o:"PM + Dev",own:"both"},
+    {t:"Agree on AI analysis output JSON schema — health_state, score, root_causes[], action_plan[], client_paragraph",o:"PM + Dev",own:"both"},
+    {t:"Write system prompt draft v1 — diagnostic tier order, India benchmarks, 12 root causes, health score formula, client paragraph format",o:"PM",own:"pm"},
+    {t:"Set up test environment and confirm Claude Sonnet API access",o:"Dev lead",own:"dev"},
+    {t:"Define the 3 test client datasets for QA (use real Venpep client exports)",o:"PM",own:"pm"},
+    {t:"Agree on blocker escalation rule: nothing sits overnight unresolved",o:"PM + Dev",own:"both"},
+  ]},
+  {title:"Day 2 — Fri: Core AI engine build begins",tasks:[
+    {t:"Backend: API integration with Claude — prompt → structured JSON response pipeline working",o:"Dev",own:"dev"},
+    {t:"Backend: CSV parsing for Meta Ads export (standard column mapping)",o:"Dev",own:"dev"},
+    {t:"Backend: CSV parsing for Google Ads export (standard column mapping)",o:"Dev",own:"dev"},
+    {t:"Backend: Data quality validation — detect missing conversion columns, flag before analysis runs",o:"Dev",own:"dev"},
+    {t:"PM: Test system prompt v1 on 3 real client datasets — check root-cause accuracy",o:"PM",own:"pm"},
+    {t:"PM: Send system prompt v2 with corrections to dev lead by EOD",o:"PM",own:"pm"},
+  ]},
+  {title:"Day 3 — Sat: AI output + brand profile",tasks:[
+    {t:"Backend: Brand profile storage — create, read, update per client account",o:"Dev",own:"dev"},
+    {t:"Backend: Profile auto-injection into analysis prompt on each run",o:"Dev",own:"dev"},
+    {t:"Backend: Health score computation — 6-input weighted formula, returns 0–100 + state",o:"Dev",own:"dev"},
+    {t:"Backend: Analysis history storage — last 20 per client, with timestamps",o:"Dev",own:"dev"},
+    {t:"Frontend: AI Brain screen — chat interface, input area, output rendering",o:"Frontend Dev",own:"dev"},
+    {t:"PM: Run first end-to-end test — paste CSV → receive full output. Log every issue.",o:"PM",own:"pm"},
+  ]},
+  {title:"Day 4 — Sun: Auth, workspace, integrations",tasks:[
+    {t:"Backend: Supabase auth setup — email/password + JWT workspace scoping",o:"Dev",own:"dev"},
+    {t:"Backend: Workspace + client account data model (PRD v1.1 Feature 11)",o:"Dev",own:"dev"},
+    {t:"Backend: RBAC role enforcement + invite link generation (PRD v1.1 Feature 12)",o:"Dev",own:"dev"},
+    {t:"Backend: Meta Ads OAuth integration — connect, pull last 7 days, map to MIP schema",o:"Integration Dev",own:"dev"},
+    {t:"Backend: Google Ads OAuth integration — connect, pull last 7 days, map to MIP schema",o:"Integration Dev",own:"dev"},
+    {t:"Frontend: Dashboard screen — client health score cards, top AI insights panel",o:"Frontend Dev",own:"dev"},
+    {t:"PM: Test system prompt v2 on all 3 client datasets. Score AI output quality 1–10.",o:"PM",own:"pm"},
+  ]},
+  {title:"Day 5 — Mon: Integration and UI completion",tasks:[
+    {t:"Integration: End-to-end test — Meta OAuth → analysis → health score on real client data",o:"PM + Dev",own:"both"},
+    {t:"Integration: End-to-end test — Google OAuth → analysis → health score on real client data",o:"PM + Dev",own:"both"},
+    {t:"Frontend: Client-ready paragraph — copy button, correct format enforcement",o:"Frontend Dev",own:"dev"},
+    {t:"Frontend: Integrations screen — connection status, data refresh schedule",o:"Frontend Dev",own:"dev"},
+    {t:"Frontend: Brand profile form — create/edit per client account",o:"Frontend Dev",own:"dev"},
+    {t:"PM: Final system prompt v3 locked. No further changes after today.",o:"PM",own:"pm"},
+    {t:"PM: Prepare demo dataset — one real client, one real campaign, last 7 days",o:"PM",own:"pm"},
+    {t:"Identify all open issues. Triage: fix before Wed or document as known gap.",o:"PM + Dev",own:"both"},
+  ]},
+  {title:"Day 6 — Tue: QA day 1",tasks:[
+    {t:"QA: Run demo dataset through MIP 10 times. Health score variance must be ≤ ±5 points.",o:"PM",own:"pm"},
+    {t:"QA: Test with incomplete data — confirm data quality warnings fire correctly",o:"PM",own:"pm"},
+    {t:"QA: Test invite link flow — generate link, accept invite, verify role is correct",o:"QA/PM",own:"qa"},
+    {t:"QA: Test workspace switcher — confirm data isolation between client accounts",o:"QA/PM",own:"qa"},
+    {t:"QA: Test client paragraph output — format: status + 2 diagnostic + 1 action",o:"PM",own:"pm"},
+    {t:"QA: Load time — AI analysis must return in under 30 seconds on standard connection",o:"QA",own:"qa"},
+    {t:"Fix: All P0 bugs resolved same day. P1 bugs: fix or document.",o:"Dev",own:"dev"},
+  ]},
+  {title:"Day 7 — Tue (late): Demo rehearsal",tasks:[
+    {t:"Brief Rohan on the demo flow — he pastes the data, not you. He should need no instructions.",o:"PM",own:"pm"},
+    {t:"Brief Anitha — show her the client paragraph output. Ask: would you send this to a client?",o:"PM",own:"pm"},
+    {t:"Run full demo 3 times end-to-end with Rohan using the real dataset",o:"PM + Rohan",own:"both"},
+    {t:"Document the 3 most likely questions the agency owner will ask. Prepare answers.",o:"PM",own:"pm"},
+    {t:"Final smoke test — everything working on the demo device and network",o:"Dev",own:"dev"},
+    {t:"Have a backup plan: if OAuth fails live, show manual CSV paste instead",o:"PM",own:"pm"},
+  ]},
+  {title:"Day 8 — Wed: Launch day",tasks:[
+    {t:"Demo: Agency owner sees Rohan paste real data and receive full output in under 30 seconds",o:"Rohan + PM",own:"both"},
+    {t:"Present: Phase 1 roadmap — what gets built next, timeline, investment ask",o:"PM",own:"pm"},
+    {t:"Gate decision: green light = Phase 1 starts. Pause = document reasons, fix, reshow in 2 weeks.",o:"All",own:"both"},
+    {t:"Post-demo: collect Rohan and Anitha's top 3 feedback items from the demo",o:"PM",own:"pm"},
+    {t:"Post-demo: log every AI output quality issue observed during demo for prompt v4",o:"PM",own:"pm"},
+  ]},
+];
+
+const dodItems=[
+  {t:"Paste any Meta Ads CSV → receive all 5 outputs in under 30 seconds"},
+  {t:"Paste any Google Ads CSV → receive all 5 outputs in under 30 seconds"},
+  {t:"Health score is consistent (±5 points) across 3 runs on same data"},
+  {t:"Root cause is named specifically — not a symptom, the actual cause"},
+  {t:"Client paragraph matches exact format: status + 2 diagnostic + 1 action"},
+  {t:"Data quality warning fires when conversion columns are missing"},
+  {t:"Brand profile is saved per client and auto-applied to every analysis"},
+  {t:"Invite link generates, sends, and assigns correct role within 2 minutes"},
+  {t:"Workspace data isolation confirmed — Client A data not visible from Client B"},
+  {t:"Meta Ads and Google Ads OAuth connections live and returning data"},
+];
+
+const taskState={};
+
+function show(id,el){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('pane-'+id).classList.add('on');
+  el.classList.add('on');
+}
+
+function loadDay(i){
+  const d=days[i];
+  document.getElementById('day-title').textContent=d.title;
+  const list=document.getElementById('day-tasks');
+  list.innerHTML='';
+  d.tasks.forEach((task,ti)=>{
+    const key=`d${i}_t${ti}`;
+    if(!taskState[key]) taskState[key]=false;
+    const div=document.createElement('div');
+    div.className='task'+(taskState[key]?' done-t':'');
+    const pillClass=task.own==='pm'?'pill-pm':task.own==='dev'?'pill-dev':task.own==='qa'?'pill-qa':'pill-both';
+    div.innerHTML=`<div class="task-cb ${taskState[key]?'checked':''}" id="cb-${key}"></div><div><div class="task-text">${task.t} <span class="pill ${pillClass}">${task.o}</span></div></div>`;
+    div.onclick=()=>toggleTask(key,div);
+    list.appendChild(div);
+  });
+  updateProgress();
+}
+
+function toggleTask(key,div){
+  taskState[key]=!taskState[key];
+  div.querySelector('.task-cb').classList.toggle('checked',taskState[key]);
+  div.classList.toggle('done-t',taskState[key]);
+  updateProgress();
+}
+
+function updateProgress(){
+  const allKeys=Object.keys(taskState).filter(k=>k.startsWith('d'));
+  const done=allKeys.filter(k=>taskState[k]).length;
+  const total=days.reduce((a,d)=>a+d.tasks.length,0);
+  document.getElementById('tasks-done').textContent=done;
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('prog').style.width=pct+'%';
+}
+
+function buildDOD(){
+  const list=document.getElementById('dod-list');
+  dodItems.forEach((item,i)=>{
+    const key='dod_'+i;
+    if(!taskState[key]) taskState[key]=false;
+    const div=document.createElement('div');
+    div.className='task'+(taskState[key]?' done-t':'');
+    div.innerHTML=`<div class="task-cb ${taskState[key]?'checked':''}" id="cb-dod-${i}"></div><div class="task-text">${item.t}</div>`;
+    div.onclick=()=>{
+      taskState[key]=!taskState[key];
+      div.querySelector('.task-cb').classList.toggle('checked',taskState[key]);
+      div.classList.toggle('done-t',taskState[key]);
+    };
+    list.appendChild(div);
+  });
+}
+
+const total=days.reduce((a,d)=>a+d.tasks.length,0);
+document.getElementById('tasks-total').textContent=total;
+loadDay(0);
+buildDOD();
+</script>
+</div>
+</body>
+</html>

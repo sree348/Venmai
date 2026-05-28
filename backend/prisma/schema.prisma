@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model MetaConnection {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique @map("tenant_id")
+  accessToken  String   @map("access_token")
+  expiresAt    DateTime @map("expires_at")
+  metaUserId   String   @map("meta_user_id")
+  adAccountId  String?  @map("ad_account_id")
+  connectedAt  DateTime @default(now()) @map("connected_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("meta_connections")
+}
+
+model CampaignData {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  clientId     String?  @map("client_id")
+  date         DateTime
+  platform     String
+  campaignId   String   @map("campaign_id")
+  campaignName String   @map("campaign_name")
+  spend        Float    @default(0)
+  impressions  Int      @default(0)
+  clicks       Int      @default(0)
+  reach        Int      @default(0)
+  frequency    Float    @default(0)
+  ctr          Float    @default(0)
+  cpc          Float    @default(0)
+  cpm          Float    @default(0)
+  conversions  Int      @default(0)
+  actionValue  Float    @default(0) @map("action_value")
+  roas         Float?
+  status       String
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, date, campaignId])
+  @@index([tenantId, date])
+  @@map("campaign_data")
+}
+
+model ConversationHistory {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  role      String   // 'user' | 'assistant'
+  content   String   // Stored text or serialized widget JSON
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("conversation_history")
+}
+
+model CampaignScore {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  campaignName String   @map("campaign_name")
+  score        Float    @default(0)
+  trend        String   @default("stable")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, campaignName])
+  @@map("campaign_scores")
+}
+
+model BrainInsight {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  type            String   // anomaly | opportunity | warning | recommendation
+  priority        String   // critical | warning | info
+  title           String
+  body            String
+  campaignName    String   @map("campaign_name")
+  metric          String
+  currentValue    Float    @map("current_value")
+  threshold       Float
+  confidence      Float
+  suggestedAction String   @map("suggested_action")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("brain_insights")
+}
+
+model AgencyReport {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  filePath   String   @map("file_path")
+  shareToken String   @unique @map("share_token")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("agency_reports")
+}
+
+
+
