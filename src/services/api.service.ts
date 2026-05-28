@@ -1,6 +1,6 @@
 import { buildMockChatResponse, mockCampaigns, mockClients, mockSpendTrend30Days } from './mock-data';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://mip-backend.vercel.app/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true';
 const TENANT_ID = import.meta.env.VITE_TENANT_ID || 'agency';
 const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN || '';
