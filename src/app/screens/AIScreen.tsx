@@ -8,6 +8,20 @@ import WidgetRenderer, { formatInr, formatRoas } from '../components/shared/Widg
 import { getAlerts, getConnectedPlatforms, getPerformanceSummary, getRecommendations } from '../../services/insights.service';
 import { toast } from 'sonner';
 
+const MetaIcon = () => (
+  <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16.924 5.25a6.496 6.496 0 0 0-4.924 2.278 6.496 6.496 0 0 0-4.924-2.278 6.643 6.643 0 0 0-6.638 6.643c0 3.754 3.036 6.643 6.638 6.643a6.496 6.496 0 0 0 4.924-2.278 6.496 6.496 0 0 0 4.924 2.278 6.643 6.643 0 0 0 6.638-6.643 6.643 6.643 0 0 0-6.638-6.643zm0 11.233a4.594 4.594 0 0 1-3.665-1.848 5.7 5.7 0 0 0 1.059-3.385c0-1.28-.426-2.457-1.127-3.398a4.594 4.594 0 0 1 3.733-1.602 4.643 4.643 0 0 1 4.638 4.643 4.643 4.643 0 0 1-4.638 4.59zm-9.848 0a4.643 4.643 0 0 1-4.638-4.59 4.643 4.643 0 0 1 4.638-4.643 4.594 4.594 0 0 1 3.733 1.602c-.701.941-1.127 2.118-1.127 3.398 0 1.28.36 2.44 1.059 3.385a4.594 4.594 0 0 1-3.665 1.848z"/>
+  </svg>
+);
+
+const GoogleAdsIcon = () => (
+  <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15.3 2.3c-.5-.5-1.3-.5-1.8 0L3.8 12c-.5.5-.5 1.3 0 1.8l4.2 4.2c.5.5 1.3.5 1.8 0l9.7-9.7c.5-.5.5-1.3 0-1.8L15.3 2.3z" fill="#FBBC05" />
+    <path d="M20.2 11.8L15.3 6.9l-4.7 4.7 4.9 4.9c.5.5 1.3.5 1.8 0l2.9-2.9c.5-.5.5-1.3 0-1.8z" fill="#4285F4" />
+    <path d="M10.6 18.5l-4.7-4.7-2.1 2.1c-.5.5-.5 1.3 0 1.8l2.9 2.9c.5.5 1.3.5 1.8 0l2.1-2.1z" fill="#34A853" />
+  </svg>
+);
+
 const QUICK_CHIPS = [
   "What should I pause today and why?",
   "Which campaigns are wasting budget with zero conversions?",
@@ -783,18 +797,31 @@ export default function AIScreen() {
 
   const tenantId = activeClient?.id || 'agency';
 
+  // Platform Segment state in AI Strategist Screen
+  const [aiPlatformFilter, setAiPlatformFilter] = useState<'meta' | 'google'>('meta');
+
+  // Filter campaigns based on the active platform segment tab
+  const filteredCampaigns = campaigns.filter((c: any) => {
+    const plat = String(c.platform || c.channel || '').toLowerCase();
+    if (aiPlatformFilter === 'meta') {
+      return plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram');
+    } else {
+      return plat.includes('google') || plat.includes('youtube');
+    }
+  });
+
   // Stats Card Calculations
   const connectedPlatforms = getConnectedPlatforms(integrations);
-  const totalSpend = campaigns.reduce((sum, c) => sum + (c.spend || c.amount_spent || 0), 0);
-  const totalConversions = campaigns.reduce((sum, c) => sum + (c.conversions || c.conv || 0), 0);
-  const totalRevenue = campaigns.reduce((sum, c) => sum + ((c.roas || 0) * (c.spend || c.amount_spent || 0)), 0);
+  const totalSpend = filteredCampaigns.reduce((sum, c) => sum + (c.spend || c.amount_spent || 0), 0);
+  const totalConversions = filteredCampaigns.reduce((sum, c) => sum + (c.conversions || c.conv || 0), 0);
+  const totalRevenue = filteredCampaigns.reduce((sum, c) => sum + ((c.roas || 0) * (c.spend || c.amount_spent || 0)), 0);
   const blendedRoas = totalConversions === 0 || totalSpend === 0 ? null : (totalRevenue / totalSpend);
-  const alerts = getAlerts(campaigns, clients);
+  const alerts = getAlerts(filteredCampaigns, clients);
   // Top Stats Calculations
-  const budgetAtRisk = campaigns
+  const budgetAtRisk = filteredCampaigns
     .filter(c => (c.conversions || c.conv || 0) === 0)
     .reduce((sum, c) => sum + (c.spend || c.amount_spent || 0), 0);
-  const scaleOpportunity = campaigns.reduce((sum, c) => {
+  const scaleOpportunity = filteredCampaigns.reduce((sum, c) => {
     const spend = Number(c.spend || c.amount_spent || 0);
     const clicks = Number(c.clicks || 0);
     const impressions = Number(c.impressions || 0);
@@ -813,21 +840,34 @@ export default function AIScreen() {
   const [isSyncingBrain, setIsSyncingBrain] = useState(false);
   const [isLoadingBrain, setIsLoadingBrain] = useState(true);
 
-  const ruleInsights = buildRuleInsights(campaigns);
-  const mergedInsights = [...ruleInsights, ...insights]
+  const ruleInsights = buildRuleInsights(filteredCampaigns);
+  const filteredInsights = insights.filter(ins => {
+    if (ins.campaignName) {
+      return filteredCampaigns.some(c => c.name === ins.campaignName || c.campaignName === ins.campaignName);
+    }
+    const titleLower = String(ins.title || '').toLowerCase();
+    const bodyLower = String(ins.body || '').toLowerCase();
+    if (aiPlatformFilter === 'meta') {
+      return !titleLower.includes('google') && !bodyLower.includes('google') && !titleLower.includes('youtube') && !bodyLower.includes('youtube');
+    } else {
+      return titleLower.includes('google') || bodyLower.includes('google') || titleLower.includes('youtube') || bodyLower.includes('youtube');
+    }
+  });
+
+  const mergedInsights = [...ruleInsights, ...filteredInsights]
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
     .slice(0, 8);
   const criticalInsights = mergedInsights.filter(i => i.priority === 'critical');
   const warningInsights = mergedInsights.filter(i => i.priority === 'warning');
   const scaleInsights = mergedInsights.filter(i => i.type === 'opportunity');
-  const avgHealthScore = campaigns.length
-    ? Math.round(campaigns.reduce((sum, c: any) => {
+  const avgHealthScore = filteredCampaigns.length
+    ? Math.round(filteredCampaigns.reduce((sum, c: any) => {
       const dbScore = brainScores.find(bs => bs.campaignName === c.name || bs.campaignName === c.campaignName);
       if (dbScore) return sum + Number(dbScore.score || 0);
       const { roas, ctr, frequency, cpc } = getCampaignMetrics(c);
       const fallback = Math.max(0, Math.min(100, Math.round((roas * 25) + (ctr * 15) + (cpc > 0 ? (1 / cpc) * 20 : 0) - (frequency * 10))));
       return sum + fallback;
-    }, 0) / campaigns.length)
+    }, 0) / filteredCampaigns.length)
     : 0;
   const actionQueue = mergedInsights.slice(0, 5).map((insight, index) => ({
     id: insight.id || `${insight.campaignName}-${index}`,
@@ -1162,6 +1202,32 @@ export default function AIScreen() {
             </div>
           </div>
 
+          {/* Platform Segment Selector Tabs */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl w-fit shadow-sm">
+            <button
+              onClick={() => setAiPlatformFilter('meta')}
+              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
+                aiPlatformFilter === 'meta'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
+              }`}
+            >
+              <MetaIcon />
+              Meta Ads Strategy
+            </button>
+            <button
+              onClick={() => setAiPlatformFilter('google')}
+              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
+                aiPlatformFilter === 'google'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
+              }`}
+            >
+              <GoogleAdsIcon />
+              Google Ads Strategy
+            </button>
+          </div>
+
           {/* Top Stats Strip */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
@@ -1242,9 +1308,9 @@ export default function AIScreen() {
                 <RefreshCw className="size-6 text-indigo-500 animate-spin" />
                 <span className="text-xs font-semibold text-muted-foreground">Calculating portfolio scores...</span>
               </div>
-            ) : campaigns.length === 0 ? (
+            ) : filteredCampaigns.length === 0 ? (
               <div className="py-12 text-center text-xs text-muted-foreground font-semibold">
-                No live campaigns found. Please connect your Meta Ads integration.
+                No live campaigns found for {aiPlatformFilter === 'meta' ? 'Meta' : 'Google'} Ads. Please connect your integration.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1259,7 +1325,7 @@ export default function AIScreen() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {campaigns.map((c: any) => {
+                    {filteredCampaigns.map((c: any) => {
                       const dbScore = brainScores.find(bs => bs.campaignName === c.name || bs.campaignName === c.campaignName);
                       
                       const spend = Number(c.spend || c.amount_spent || 0);

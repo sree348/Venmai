@@ -135,6 +135,14 @@ export const apiService = {
     return request(`/dashboard/last-synced?${search.toString()}`);
   },
 
+  async getMonthlyTrend(params: { clientId?: string | null; from: string; to: string }) {
+    if (MOCK_MODE) return [];
+
+    const search = new URLSearchParams({ from: params.from, to: params.to });
+    if (params.clientId) search.set('clientId', params.clientId);
+    return request(`/dashboard/monthly-trend?${search.toString()}`);
+  },
+
   async getPlatformConnections() {
     if (MOCK_MODE) return [];
     return request(`/platform-connections?tenantId=${encodeURIComponent(TENANT_ID)}`);

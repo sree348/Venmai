@@ -309,6 +309,11 @@ function ShareModal({ onClose, name }: { onClose: () => void; name: string }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function DashboardViewerScreen() {
   const now = new Date();
+  
+  useEffect(() => {
+    console.log("MIP Dashboard Viewer loaded with Chronological months!");
+  }, []);
+
   // Default to March 2026 — where mock campaign data lives
   const [monthYear, setMonthYear]   = useState({ month: 2, year: 2026 });
   const [showShare, setShowShare]   = useState(false);
@@ -374,6 +379,8 @@ export default function DashboardViewerScreen() {
   const [fAudience,  setFAudience]  = useState<string[]>([]);
   const [fTarget,    setFTarget]    = useState<string[]>([]);
 
+  const MONTH_ORDER = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
   const { selectedDashboard, setSelectedDashboard, dashboards, campaigns, integrations, pinnedWidgets = [], removePinnedWidget, reorderPinnedWidgets } = useApp();
   const { CLIENTS: clients } = useApp() as any;
   const queryClient = useQueryClient();
@@ -398,6 +405,10 @@ export default function DashboardViewerScreen() {
     queryKey: ['last-synced', dashboard.clientId],
     queryFn: () => apiService.getLastSynced(dashboard.clientId),
   });
+  const { data: apiMonthlyTrend = [] } = useQuery({
+    queryKey: ['monthly-trend', dashboard.clientId, startDate, endDate],
+    queryFn: () => apiService.getMonthlyTrend({ clientId: dashboard.clientId, from: from.toISOString(), to: to.toISOString() }),
+  });
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { query: { tenantId: apiService.tenantId } });
@@ -409,7 +420,7 @@ export default function DashboardViewerScreen() {
   }, [queryClient]);
 
   // ── Raw campaign list — live data OR mock fallback ──────────────────────────
-  const rawCampaigns: any[] = ((liveCampaignRows as any[]).length || !apiService.isMockMode)
+  const allRawCampaigns: any[] = ((liveCampaignRows as any[]).length || !apiService.isMockMode)
     ? (liveCampaignRows as any[]).map((c: any) => ({
         ...c,
         ad_name: c.ad_name || c.name || c.campaignName,
@@ -434,6 +445,15 @@ export default function DashboardViewerScreen() {
           amount_spent: c.amount_spent || c.spend || 0,
           reach: c.reach || Math.round((c.impressions || 0) / Math.max(c.frequency || 1, 1)),
         }));
+
+  // Dynamically filter campaigns to isolate Meta Ads vs Google Ads per dashboard
+  const rawCampaigns = dashboard.platform
+    ? allRawCampaigns.filter((c: any) => {
+        const plat = String(c.platform || c.channel || '').toLowerCase();
+        const targetPlat = String(dashboard.platform).toLowerCase();
+        return plat.includes(targetPlat.replace(/ ads$/i, '')) || targetPlat.includes(plat.replace(/ ads$/i, ''));
+      })
+    : allRawCampaigns;
 
   // ── Filter options ──────────────────────────────────────────────────────────
   const uniq = (key: string) => [...new Set(rawCampaigns.map((c: any) => c[key]).filter(Boolean))] as string[];
@@ -573,6 +593,27 @@ export default function DashboardViewerScreen() {
     y: c.ctr || 0,
     z: Math.round((c.impressions || 0) / 1000),
   }));
+
+  // ── Live Monthly Trend (from actual campaign dates) ─────────────────────────
+  // Groups all campaigns by month — fetched directly from DB via /dashboard/monthly-trend.
+  // Falls back to mock data only when no live data is returned.
+  const liveMonthlyTrend = useMemo(() => {
+    const api = (apiMonthlyTrend as any[]);
+    if (api.length > 0) {
+      // Backend already returns month_label as "Jan 26", "Feb 26", etc.
+      return api.map((row: any) => ({
+        month_label: row.month_label ?? row.month ?? '',
+        spend:       Math.round(Number(row.spend) || 0),
+        clicks:      Number(row.clicks) || 0,
+        ctr:         Number((Number(row.ctr  || 0)).toFixed(3)),
+        cpc:         Number((Number(row.cpc  || 0)).toFixed(2)),
+      }));
+    }
+    // Fallback: mock data sorted in calendar order — use month as label
+    return [...mockMonthlyTrend]
+      .sort((a, b) => MONTH_ORDER.indexOf(a.month) - MONTH_ORDER.indexOf(b.month))
+      .map(r => ({ ...r, month_label: r.month }));
+  }, [apiMonthlyTrend]);
 
   // ── Sortable table ──────────────────────────────────────────────────────────
   const sortedAds = useMemo(() => {
@@ -961,10 +1002,10 @@ export default function DashboardViewerScreen() {
         <Panel title="Monthly Spend vs Clicks" subtitle="Is spend growth driving click growth?">
           <div className="px-5 pb-5">
             <ResponsiveContainer width="100%" height={210}>
-              <ComposedChart data={mockMonthlyTrend} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
+              <ComposedChart data={liveMonthlyTrend} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => v === 0 ? '₹0' : `₹${Math.round(v / 1000)}k`} />
+                <XAxis dataKey="month_label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => v === 0 ? '₹0' : `₹${fmtK(v)}`} />
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => fmtK(v)} />
                 <Tooltip content={<DarkTooltip />} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
@@ -979,11 +1020,11 @@ export default function DashboardViewerScreen() {
         <Panel title="Monthly CTR vs CPC Trend" subtitle="CTR rising + CPC falling = healthy performance">
           <div className="px-5 pb-5">
             <ResponsiveContainer width="100%" height={210}>
-              <LineChart data={mockMonthlyTrend} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
+              <LineChart data={liveMonthlyTrend} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v}`} />
+                <XAxis dataKey="month_label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 5]}   tickFormatter={v => `${v}%`} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={v => `₹${v}`} />
                 <Tooltip content={<DarkTooltip />} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                 <Line yAxisId="left"  dataKey="ctr" name="CTR (%)"  stroke="#10b981" strokeWidth={2.5} dot={{ r:3, fill:'#10b981' }} />
@@ -1072,11 +1113,11 @@ export default function DashboardViewerScreen() {
               <BarChart data={byAudience} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}k`} />
-                <Tooltip formatter={(v: any) => `${v}k`} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => fmtK(v)} />
+                <Tooltip formatter={(v: any, name: any) => [fmtK(v), name]} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="spend" name="Spend (₹k)" fill="#6366f1" radius={[4,4,0,0]} maxBarSize={28} />
-                <Bar dataKey="reach" name="Reach (k)"  fill="#06b6d4" radius={[4,4,0,0]} maxBarSize={28} />
+                <Bar dataKey="spend" name="Spend (₹)" fill="#6366f1" radius={[4,4,0,0]} maxBarSize={28} />
+                <Bar dataKey="reach" name="Reach"      fill="#06b6d4" radius={[4,4,0,0]} maxBarSize={28} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -1160,11 +1201,11 @@ export default function DashboardViewerScreen() {
               <BarChart data={reachVsImpr} margin={{ top: 4, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}k`} />
-                <Tooltip formatter={(v: any) => `${v}k`} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => fmtK(v)} />
+                <Tooltip formatter={(v: any, name: any) => [fmtK(v), name]} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="impressions" name="Impressions (k)" fill="#6366f1" radius={[4,4,0,0]} maxBarSize={32} />
-                <Bar dataKey="reach"       name="Reach (k)"       fill="#06b6d4" radius={[4,4,0,0]} maxBarSize={32} />
+                <Bar dataKey="impressions" name="Impressions" fill="#6366f1" radius={[4,4,0,0]} maxBarSize={32} />
+                <Bar dataKey="reach"       name="Reach"       fill="#06b6d4" radius={[4,4,0,0]} maxBarSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>

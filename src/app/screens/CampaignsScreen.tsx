@@ -161,6 +161,7 @@ export default function CampaignsScreen() {
 
   // Status and month filters
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'draft' | 'inactive'>('all');
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'meta' | 'google'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
   const [selectedRangeLabel, setSelectedRangeLabel] = useState('1 May 2026 - 25 May 2026');
@@ -289,6 +290,12 @@ export default function CampaignsScreen() {
         if (statusFilter === 'draft') return c.status === 'draft';
         if (statusFilter === 'inactive') return !c.active || c.status !== 'active';
       }
+      // Platform filter
+      if (platformFilter !== 'all') {
+        const plat = String(c.platform || c.channel || '').toLowerCase();
+        if (platformFilter === 'meta') return plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram');
+        if (platformFilter === 'google') return plat.includes('google') || plat.includes('youtube');
+      }
       // Meta-style Custom Date Range Filter
       if (startDate && endDate) {
         const cDate = c.start_date || `${c.year}-${String(c.month).padStart(2, '0')}-15`;
@@ -308,6 +315,16 @@ export default function CampaignsScreen() {
     if (statusFilter === 'paused' && as.active) return false;
     if (statusFilter === 'inactive' && as.active) return false;
 
+    // Filter by platform filter
+    if (platformFilter !== 'all') {
+      const parentCamp = campaigns.find(c => String(c.id) === String(as.campaignId));
+      if (parentCamp) {
+        const plat = String(parentCamp.platform || parentCamp.channel || '').toLowerCase();
+        if (platformFilter === 'meta' && !(plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram'))) return false;
+        if (platformFilter === 'google' && !(plat.includes('google') || plat.includes('youtube'))) return false;
+      }
+    }
+
     // Filter by breadcrumb click
     if (selectedCampaignId && String(as.campaignId) !== String(selectedCampaignId)) {
       return false;
@@ -324,6 +341,17 @@ export default function CampaignsScreen() {
     if (statusFilter === 'active' && !ad.active) return false;
     if (statusFilter === 'paused' && ad.active) return false;
     if (statusFilter === 'inactive' && ad.active) return false;
+
+    // Filter by platform filter
+    if (platformFilter !== 'all') {
+      const parentAdSet = allAdSets.find(as => as.id === ad.adsetId);
+      const parentCamp = parentAdSet ? campaigns.find(c => String(c.id) === String(parentAdSet.campaignId)) : null;
+      if (parentCamp) {
+        const plat = String(parentCamp.platform || parentCamp.channel || '').toLowerCase();
+        if (platformFilter === 'meta' && !(plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram'))) return false;
+        if (platformFilter === 'google' && !(plat.includes('google') || plat.includes('youtube'))) return false;
+      }
+    }
 
     // Filter by parent adset breadcrumb
     if (selectedAdSetId && ad.adsetId !== selectedAdSetId) {
@@ -639,27 +667,51 @@ export default function CampaignsScreen() {
       FILTER & CALENDAR CONTROL TOOLBAR (Meta Ads Style)
       // ═══════════════════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-200 p-3 rounded-2xl shadow-sm mb-4 animate-fade-in">
-        {/* Left: Status Filter Pills */}
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
-          {[
-            { id: 'all', label: 'All' },
-            { id: 'active', label: 'Active' },
-            { id: 'paused', label: 'Paused' },
-            { id: 'draft', label: 'Draft' },
-            { id: 'inactive', label: 'Non Active' },
-          ].map(status => (
-            <button
-              key={status.id}
-              onClick={() => setStatusFilter(status.id as any)}
-              className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                statusFilter === status.id
-                  ? 'bg-indigo-650 text-white shadow-sm font-extrabold'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
-              }`}
-            >
-              {status.label}
-            </button>
-          ))}
+        {/* Left: Platform & Status Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Platform Filters */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 p-1 rounded-xl">
+            {[
+              { id: 'all', label: 'All Platforms' },
+              { id: 'meta', label: 'Meta Ads' },
+              { id: 'google', label: 'Google Ads' },
+            ].map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPlatformFilter(p.id as any)}
+                className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  platformFilter === p.id
+                    ? 'bg-slate-900 text-white shadow-sm font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-150 p-1 rounded-xl overflow-x-auto">
+            {[
+              { id: 'all', label: 'All Status' },
+              { id: 'active', label: 'Active' },
+              { id: 'paused', label: 'Paused' },
+              { id: 'draft', label: 'Draft' },
+              { id: 'inactive', label: 'Non Active' },
+            ].map(status => (
+              <button
+                key={status.id}
+                onClick={() => setStatusFilter(status.id as any)}
+                className={`h-7 px-3.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  statusFilter === status.id
+                    ? 'bg-indigo-650 text-white shadow-sm font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50'
+                }`}
+              >
+                {status.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Right: Calendar Date Range Selector */}

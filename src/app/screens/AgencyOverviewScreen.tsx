@@ -169,7 +169,12 @@ export default function AgencyOverviewScreen() {
   };
 
   // Dynamic calculations from live campaigns
-  const totalSpend = campaigns.reduce((s: number, c: any) => s + c.spend, 0);
+  const totalSpend = campaigns
+    .filter((c: any) => {
+      const plat = String(c.platform || c.channel || '').toLowerCase();
+      return plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram');
+    })
+    .reduce((s: number, c: any) => s + c.spend, 0);
   const totalConv = campaigns.reduce((s: number, c: any) => s + c.conv, 0);
   const totalClicks = campaigns.reduce((s: number, c: any) => s + Number(c.clicks || 0), 0);
   const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
@@ -178,7 +183,12 @@ export default function AgencyOverviewScreen() {
   const clientStats = clients.map((client: any) => {
     const cc = campaigns.filter((c: any) => c.clientId === client.id);
     const cd = dashboards.filter((d: any) => d.clientId === client.id);
-    const spend = cc.reduce((s: number, c: any) => s + c.spend, 0);
+    const spend = cc
+      .filter((c: any) => {
+        const plat = String(c.platform || c.channel || '').toLowerCase();
+        return plat.includes('meta') || plat.includes('facebook') || plat.includes('instagram');
+      })
+      .reduce((s: number, c: any) => s + c.spend, 0);
     const clicks = cc.reduce((s: number, c: any) => s + Number(c.clicks || 0), 0);
     const cpc = clicks > 0 ? spend / clicks : 0;
     return {

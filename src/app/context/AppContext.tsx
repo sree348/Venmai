@@ -11,9 +11,9 @@ export const CLIENTS = mockClients;
 const INITIAL_CAMPAIGNS = mockCampaigns;
 
 const INITIAL_DASHBOARDS = [
-  { id: 1, clientId: 'cai_mahindra', name: 'CAI Mahindra — Real-Time Performance', description: 'Complete 14-tile dashboard for the modern performance marketer', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-red-50 to-rose-100/60' },
-  { id: 2, clientId: 'cai_mahindra', name: 'CAI Mahindra — Creative Fatigue Deep Dive', description: 'Actionable ad fatigue analysis with 3.0 frequency warning threshold', widgets: 8, updated: '1 hour ago', schedule: 'Weekly Mon', recipients: 3, favorite: true, color: 'from-rose-50 to-orange-50' },
-  { id: 3, clientId: 'cai_mahindra', name: 'CAI Mahindra — Budget & Efficiency Overview', description: 'Multi-channel spend tracking, CPA benchmarks and CPA scaling indices', widgets: 10, updated: '2 hours ago', schedule: 'Mon-Fri 8am', recipients: 2, favorite: false, color: 'from-red-50 to-indigo-50' }
+  { id: 1, clientId: 'cai_mahindra', name: 'CAI Mahindra — Meta Ads Performance Dashboard', description: 'Real-time performance marketer dashboard for Meta (Facebook & Instagram) campaigns', platform: 'Meta Ads', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-blue-50 to-indigo-100/60' },
+  { id: 2, clientId: 'cai_mahindra', name: 'CAI Mahindra — Google Ads Performance Dashboard', description: 'Real-time search and Performance Max tracking for Google Ads campaigns', platform: 'Google Ads', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-emerald-50 to-teal-100/60' },
+  { id: 3, clientId: 'cai_mahindra', name: 'CAI Mahindra — Budget & Efficiency Overview', description: 'Multi-channel spend tracking, CPA benchmarks and CPA scaling indices', widgets: 10, updated: '2 hours ago', schedule: 'Mon-Fri 8am', recipients: 2, favorite: false, color: 'from-slate-50 to-slate-100' }
 ];
 
 // Context Type definition

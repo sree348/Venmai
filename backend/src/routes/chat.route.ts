@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { executeReadOnlySql } from '../services/db.service.js';
-import { queryWithGroq } from '../services/groq.service.js';
+import { queryWithGroq, generateInsightFromData } from '../services/groq.service.js';
 import { prisma } from '../services/prisma.service.js';
 import { prepareAiSql } from '../services/sql-safety.service.js';
 import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
@@ -37,6 +37,17 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
       }
     }
 
+    // Call generateInsightFromData to build a true, data-grounded natural language explanation!
+    let liveInsight = spec.insight;
+    try {
+      liveInsight = await generateInsightFromData(prompt, spec.sql, rows, tenantId);
+    } catch (insightErr) {
+      console.error('Failed to generate live insight:', insightErr);
+    }
+
+    // Update the spec insight with the live computed insight
+    spec.insight = liveInsight;
+
     const widget = {
       ...spec,
       data: rows,
@@ -55,7 +66,7 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
     // 2. Store assistant message
     const assistantPayload = {
       widget,
-      insight: spec.insight,
+      insight: liveInsight,
     };
 
     await prisma.conversationHistory.create({
@@ -68,7 +79,7 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
 
     return res.json({
       widget,
-      insight: spec.insight,
+      insight: liveInsight,
     });
   } catch (error: any) {
     console.error('Chat error:', error);

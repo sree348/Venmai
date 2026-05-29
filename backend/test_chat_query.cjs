@@ -1,22 +1,12 @@
-import Groq from 'groq-sdk';
+const { Pool } = require('pg');
+const Groq = require('groq-sdk');
+const dotenv = require('dotenv');
 
-type ChatHistoryMessage = {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-};
+dotenv.config();
 
-export type WidgetSpec = {
-  chart_type: 'bar_chart' | 'line_chart' | 'table' | 'kpi_card' | 'pie_chart';
-  title: string;
-  data: any[];
-  config: {
-    x_axis: string | null;
-    y_axis: string | null;
-    sort: 'ASC' | 'DESC' | 'asc' | 'desc' | null;
-  };
-  sql: string;
-  insight: string;
-};
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || "postgresql://postgres:123@localhost:5432/MIP",
+});
 
 const SYSTEM_PROMPT = `You are a marketing analytics SQL expert. Table: GOLD_CAMPAIGN_DAILY (maps to campaign_data).
 Columns: tenant_id, date, platform, campaign_id, campaign_name, spend, impressions, clicks, reach, frequency, ctr, cpc, cpm, roas(nullable), conversions, status.
@@ -27,7 +17,6 @@ Strict Rules:
 3. FREQUENCY must always use AVG(frequency) when aggregating. For "high frequency" campaigns use:
    GROUP BY campaign_id, campaign_name, platform
    HAVING AVG(frequency) > 3
-   ORDER BY AVG(frequency) DESC
    Never use WHERE frequency > X on raw rows — frequency is a daily metric.
 4. Default date range = last 90 days unless user specifies. Use: date >= NOW() - INTERVAL '90 days'
 5. Active campaigns filter: LOWER(status) = 'active'
@@ -64,77 +53,75 @@ Always return only this JSON:
   "insight": "A brief premium marketing insight based on what this query answers"
 }`;
 
+function prepareAiSql(rawSql, scopeId) {
+  const mappedSql = rawSql.replace(/\bGOLD_CAMPAIGN_DAILY\b/gi, 'campaign_data');
+  
+  // Strip trailing semicolon
+  let trimmed = mappedSql.trim().replace(/;\s*$/, '').trim();
 
-function extractJson(content: string): WidgetSpec {
-  let cleanContent = content.trim();
-  if (cleanContent.startsWith('```')) {
-    const lines = cleanContent.split('\n');
-    if (lines[0].startsWith('```')) {
-      lines.shift();
-    }
-    if (lines[lines.length - 1].startsWith('```')) {
-      lines.pop();
-    }
-    cleanContent = lines.join('\n').trim();
+  // Remove existing scope predicates
+  let unscopedSql = trimmed
+    .replace(/\s+and\s+tenant_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)/gi, '')
+    .replace(/\s+where\s+tenant_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)\s+and\s+/gi, ' WHERE ')
+    .replace(/\s+where\s+tenant_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)/gi, '')
+    .replace(/\s+and\s+client_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)/gi, '')
+    .replace(/\s+where\s+client_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)\s+and\s+/gi, ' WHERE ')
+    .replace(/\s+where\s+client_id\s*=\s*('[^']*'|"[^"]*"|[a-zA-Z0-9_-]+)/gi, '');
+
+  const predicate = !scopeId || scopeId === 'agency'
+    ? "tenant_id = 'agency'"
+    : `tenant_id = 'agency' AND client_id = '${scopeId}'`;
+
+  // Add scope predicate
+  const clauseMatch = unscopedSql.match(/\s+(group\s+by|having|order\s+by|limit|offset)\b/i);
+  const predicateTarget = clauseMatch ? unscopedSql.slice(0, clauseMatch.index).trim() : unscopedSql;
+  const suffix = clauseMatch ? unscopedSql.slice(clauseMatch.index) : '';
+  const hasWhere = /\bwhere\b/i.test(predicateTarget);
+
+  let scopedSql = `${predicateTarget}${hasWhere ? ' AND' : ' WHERE'} ${predicate}${suffix}`;
+
+  // Add LIMIT 500
+  if (!/\s+limit\s+\d+\s*$/i.test(scopedSql)) {
+    scopedSql = `${scopedSql} LIMIT 500`;
   }
 
-  const parsed = JSON.parse(cleanContent) as WidgetSpec;
-
-  if (!parsed.sql || typeof parsed.sql !== 'string') {
-    throw new Error('Groq response did not include SQL.');
-  }
-
-  return parsed;
+  return scopedSql;
 }
 
-export async function queryWithGroq(
-  prompt: string,
-  tenantId: string,
-  history: ChatHistoryMessage[] = []
-): Promise<WidgetSpec> {
-  const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-  });
+async function test() {
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const prompt = "Compare the performance of Mahindra XUV700 versus Mahindra Thar campaigns.";
 
+  console.log("Asking Groq...");
   const completion = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     temperature: 0.1,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...history,
-      {
-        role: 'user',
-        content: `tenantId: ${tenantId}\nQuestion: ${prompt}`,
-      },
-    ],
+      { role: 'user', content: `tenantId: cai_mahindra\nQuestion: ${prompt}` }
+    ]
   });
 
   const content = completion.choices[0]?.message?.content;
+  console.log("Groq raw response:", content);
 
-  if (!content) {
-    throw new Error('Groq returned an empty response.');
-  }
+  const spec = JSON.parse(content);
+  console.log("Generated SQL:", spec.sql);
 
-  return extractJson(content);
-}
+  const sqlToRun = prepareAiSql(spec.sql, 'cai_mahindra');
+  console.log("Prepared SQL to run:", sqlToRun);
 
-export async function generateInsightFromData(
-  prompt: string,
-  sql: string,
-  data: unknown[],
-  tenantId: string
-): Promise<string> {
-  const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-  });
+  const dbRes = await pool.query(sqlToRun);
+  console.log(`Database returned ${dbRes.rows.length} rows:`);
+  console.log(dbRes.rows);
 
   const promptMessage = `
 You are the AI analytics layer for the MIP marketing dashboard.
 The user asked this marketing question: "${prompt}"
-You generated and ran this SQL query: "${sql}"
+You generated and ran this SQL query: "${spec.sql}"
 The database returned these rows:
-${JSON.stringify(data, null, 2)}
+${JSON.stringify(dbRes.rows, null, 2)}
 
 Based strictly on the database results above, write a concise, professional, and natural language answer to the user's question.
 - Reference specific numbers, metrics, platform names, and campaign names from the data.
@@ -144,13 +131,18 @@ Based strictly on the database results above, write a concise, professional, and
 - If the data is empty, mention that no active campaigns or conversions were found matching their criteria.
 `;
 
-  const completion = await groq.chat.completions.create({
+  console.log("\nGenerating live answer...");
+  const completion2 = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     temperature: 0.2,
     messages: [
-      { role: 'user', content: promptMessage },
-    ],
+      { role: 'user', content: promptMessage }
+    ]
   });
 
-  return completion.choices[0]?.message?.content || 'Here is your campaign summary data.';
+  console.log("\nAI Live Answer:\n", completion2.choices[0]?.message?.content);
 }
+
+test()
+  .catch(console.error)
+  .finally(() => pool.end());

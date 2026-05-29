@@ -116,5 +116,5 @@ export async function getGoogleCustomerAccount(accessToken: string): Promise<str
     console.error('[Google API] Failed to list accounts:', err);
   }
 
-  return '123-456-7890'; // Graceful fallback customer ID
+  return process.env.GOOGLE_CUSTOMER_ID || '123-456-7890'; // Graceful fallback customer ID
 }

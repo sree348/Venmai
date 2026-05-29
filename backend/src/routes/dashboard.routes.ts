@@ -164,3 +164,62 @@ dashboardRouter.get('/dashboard/last-synced', requireJwtAuth, async (req: Authen
     return next(error);
   }
 });
+
+dashboardRouter.get('/dashboard/monthly-trend', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const tenantId = req.auth!.tenantId;
+    const clientId = req.query.clientId ? String(req.query.clientId) : undefined;
+
+    // Find the earliest date available for this tenant (ignore request date range)
+    const earliestRows = await prisma.$queryRaw<Array<{ earliest: Date | null }>>`
+      SELECT MIN(date) AS earliest
+      FROM campaign_data
+      WHERE tenant_id = ${tenantId}
+      ${clientId ? Prisma.sql`AND client_id = ${clientId}` : Prisma.empty}
+    `;
+    const earliest = earliestRows[0]?.earliest ?? new Date('2024-01-01');
+    const now = new Date();
+
+    const rows = await prisma.$queryRaw<Array<{
+      month_bucket: Date;
+      spend: number;
+      clicks: number;
+      impressions: number;
+      ctr: number;
+      cpc: number;
+    }>>`
+      SELECT
+        DATE_TRUNC('month', date)                                           AS month_bucket,
+        SUM(spend)::float                                                   AS spend,
+        SUM(clicks)::bigint                                                 AS clicks,
+        SUM(impressions)::bigint                                            AS impressions,
+        CASE WHEN SUM(impressions) = 0 THEN 0
+             ELSE (SUM(clicks)::numeric / NULLIF(SUM(impressions), 0) * 100)::float
+        END                                                                 AS ctr,
+        CASE WHEN SUM(clicks) = 0 THEN 0
+             ELSE (SUM(spend) / NULLIF(SUM(clicks), 0))::float
+        END                                                                 AS cpc
+      FROM campaign_data
+      WHERE tenant_id = ${tenantId}
+        AND date >= ${earliest}
+        AND date <= ${now}
+        ${clientId ? Prisma.sql`AND client_id = ${clientId}` : Prisma.empty}
+      GROUP BY DATE_TRUNC('month', date)
+      ORDER BY DATE_TRUNC('month', date) ASC
+    `;
+
+    // Format month_bucket → "Jan 26", "Feb 26", etc.
+    const result = rows.map(row => ({
+      month_label: new Date(row.month_bucket).toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
+      spend:       Math.round(Number(row.spend) || 0),
+      clicks:      Number(row.clicks) || 0,
+      impressions: Number(row.impressions) || 0,
+      ctr:         Number((Number(row.ctr) || 0).toFixed(3)),
+      cpc:         Number((Number(row.cpc) || 0).toFixed(2)),
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
