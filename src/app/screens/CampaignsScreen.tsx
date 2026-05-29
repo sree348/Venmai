@@ -165,6 +165,47 @@ export default function CampaignsScreen() {
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
   const [selectedRangeLabel, setSelectedRangeLabel] = useState('1 May 2026 - 25 May 2026');
 
+  // Calendar month/year navigation state (Left month is indexed 4 = May 2026)
+  const [leftMonth, setLeftMonth] = useState<number>(4);
+  const [leftYear, setLeftYear] = useState<number>(2026);
+
+  const rightMonth = (leftMonth + 1) % 12;
+  const rightYear = leftMonth === 11 ? leftYear + 1 : leftYear;
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const getCalendarDays = (month: number, year: number) => {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDay = new Date(year, month, 1).getDay();
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startDay; i++) days.push(null);
+    for (let d = 1; d <= daysInMonth; d++) days.push(d);
+    return days;
+  };
+
+  const handlePrevMonth = () => {
+    setLeftMonth(prev => {
+      if (prev === 0) {
+        setLeftYear(y => y - 1);
+        return 11;
+      }
+      return prev - 1;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setLeftMonth(prev => {
+      if (prev === 11) {
+        setLeftYear(y => y + 1);
+        return 0;
+      }
+      return prev + 1;
+    });
+  };
+
   // Advanced Meta-style Date Range Picker States
   const [startDate, setStartDate] = useState<string>('2026-05-01');
   const [endDate, setEndDate] = useState<string>('2026-05-25');
@@ -687,40 +728,33 @@ export default function CampaignsScreen() {
                     {/* Calendars header */}
                     <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2 border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-1.5">
-                        <ChevronRight className="w-3.5 h-3.5 rotate-180 text-slate-400 cursor-pointer hover:text-slate-700 animate-none bg-transparent border-0" />
-                        <span>May 2026</span>
+                        <ChevronRight onClick={handlePrevMonth} className="w-3.5 h-3.5 rotate-180 text-slate-400 cursor-pointer hover:text-slate-700 animate-none bg-transparent border-0" />
+                        <span>{MONTH_NAMES[leftMonth]} {leftYear}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span>June 2026</span>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-slate-700 animate-none bg-transparent border-0" />
+                        <span>{MONTH_NAMES[rightMonth]} {rightYear}</span>
+                        <ChevronRight onClick={handleNextMonth} className="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-slate-700 animate-none bg-transparent border-0" />
                       </div>
                     </div>
 
                     {/* Dual Grids */}
                     <div className="grid grid-cols-2 gap-6 select-none">
-                      {/* May 2026 Calendar starting Friday */}
+                      {/* Left Month Calendar */}
                       <div>
                         <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1">
                           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <span key={d}>{d}</span>)}
                         </div>
                         <div className="grid grid-cols-7 gap-y-1 text-center text-[11px] font-bold">
-                          {[
-                            null, null, null, null, 1, 2,
-                            3, 4, 5, 6, 7, 8, 9,
-                            10, 11, 12, 13, 14, 15, 16,
-                            17, 18, 19, 20, 21, 22, 23,
-                            24, 25, 26, 27, 28, 29, 30,
-                            31
-                          ].map((day, idx) => {
-                            if (day === null) return <span key={`empty-may-${idx}`} />;
-                            const dateStr = `2026-05-${String(day).padStart(2, '0')}`;
+                          {getCalendarDays(leftMonth, leftYear).map((day, idx) => {
+                            if (day === null) return <span key={`empty-left-${idx}`} />;
+                            const dateStr = `${leftYear}-${String(leftMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isSelectedStart = tempStartDate === dateStr;
                             const isSelectedEnd = tempEndDate === dateStr;
                             const isInRange = tempStartDate && tempEndDate && dateStr >= tempStartDate && dateStr <= tempEndDate;
 
                             return (
                               <button
-                                key={`may-${day}`}
+                                key={`left-${day}`}
                                 onClick={() => {
                                   setSelectedPreset('custom');
                                   if (!tempStartDate || (tempStartDate && tempEndDate)) {
@@ -749,28 +783,22 @@ export default function CampaignsScreen() {
                         </div>
                       </div>
 
-                      {/* June 2026 Calendar starting Monday */}
+                      {/* Right Month Calendar */}
                       <div>
                         <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1">
                           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <span key={d}>{d}</span>)}
                         </div>
                         <div className="grid grid-cols-7 gap-y-1 text-center text-[11px] font-bold">
-                          {[
-                            null, 1, 2, 3, 4, 5, 6,
-                            7, 8, 9, 10, 11, 12, 13,
-                            14, 15, 16, 17, 18, 19, 20,
-                            21, 22, 23, 24, 25, 26, 27,
-                            28, 29, 30
-                          ].map((day, idx) => {
-                            if (day === null) return <span key={`empty-june-${idx}`} />;
-                            const dateStr = `2026-06-${String(day).padStart(2, '0')}`;
+                          {getCalendarDays(rightMonth, rightYear).map((day, idx) => {
+                            if (day === null) return <span key={`empty-right-${idx}`} />;
+                            const dateStr = `${rightYear}-${String(rightMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isSelectedStart = tempStartDate === dateStr;
                             const isSelectedEnd = tempEndDate === dateStr;
                             const isInRange = tempStartDate && tempEndDate && dateStr >= tempStartDate && dateStr <= tempEndDate;
 
                             return (
                               <button
-                                key={`june-${day}`}
+                                key={`right-${day}`}
                                 onClick={() => {
                                   setSelectedPreset('custom');
                                   if (!tempStartDate || (tempStartDate && tempEndDate)) {
