@@ -19,6 +19,21 @@ model MetaConnection {
   @@map("meta_connections")
 }
 
+model PlatformConnection {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  platform      String   // "Meta" | "Google"
+  accessToken   String   @map("access_token")
+  refreshToken  String?  @map("refresh_token")
+  expiresAt     DateTime @map("expires_at")
+  customerId    String?  @map("customer_id")
+  connectedAt   DateTime @default(now()) @map("connected_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, platform])
+  @@map("platform_connections")
+}
+
 model CampaignData {
   id           String   @id @default(cuid())
   tenantId     String   @map("tenant_id")

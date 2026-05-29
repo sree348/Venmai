@@ -33,6 +33,10 @@ export default function IntegrationsScreen() {
       apiService.connectMetaAds();
       return;
     }
+    if (ig.name === 'Google Ads' && !ig.connected && !apiService.isMockMode) {
+      apiService.connectGoogleAds();
+      return;
+    }
 
     setSelectedConnector(ig);
     setShowConnectorModal(true);

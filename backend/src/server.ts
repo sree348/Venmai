@@ -11,6 +11,7 @@ import { platformConnectionsRouter } from './routes/platform-connections.route.j
 import { syncRouter } from './routes/sync.routes.js';
 import { brainRouter } from './routes/brain.routes.js';
 import { reportRouter } from './routes/report.routes.js';
+import { googleRouter } from './routes/google.route.js';
 import { startMetaSyncJob, initializeMetaConnectionFromEnv } from './jobs/meta.sync.job.js';
 import { setIo } from './services/realtime.service.js';
 
@@ -78,6 +79,7 @@ app.use('/api/v1', analyticsRouter);
 app.use('/api/v1', chatRouter);
 app.use('/api/v1', dashboardRouter);
 app.use('/api/v1', metaRouter);
+app.use('/api/v1', googleRouter);
 app.use('/api/v1', platformConnectionsRouter);
 app.use('/api/v1', syncRouter);
 app.use('/api/v1', brainRouter);

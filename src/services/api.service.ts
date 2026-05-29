@@ -64,6 +64,10 @@ export const apiService = {
     window.location.href = `${API_URL}/auth/meta/connect?tenantId=${encodeURIComponent(TENANT_ID)}`;
   },
 
+  connectGoogleAds() {
+    window.location.href = `${API_URL}/auth/google/connect?tenantId=${encodeURIComponent(TENANT_ID)}`;
+  },
+
   async triggerMetaSync() {
     if (MOCK_MODE) return { status: 'started' };
 
