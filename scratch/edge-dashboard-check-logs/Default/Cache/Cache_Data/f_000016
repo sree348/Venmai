@@ -1,0 +1,341 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/app/components/modals/DataSourceModal.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=afc3ef3c"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=afc3ef3c"; const useState = __vite__cjsImport3_react["useState"]; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { motion } from "/node_modules/.vite/deps/motion_react.js?v=afc3ef3c";
+import { X } from "/node_modules/.vite/deps/lucide-react.js?v=afc3ef3c";
+import { toast } from "/node_modules/.vite/deps/sonner.js?v=afc3ef3c";
+export default function DataSourceModal({ show, onClose, source, onSave, onDelete }) {
+  _s();
+  const [name, setName] = useState("");
+  const [type, setType] = useState("Ad Platform");
+  const [emoji, setEmoji] = useState("📊");
+  const [syncFreq, setSyncFreq] = useState("synced");
+  useEffect(() => {
+    if (source) {
+      setName(source.name);
+      setType(source.type);
+      setEmoji(source.emoji);
+      setSyncFreq(source.status);
+    } else {
+      setName("");
+      setType("Ad Platform");
+      setEmoji("📊");
+      setSyncFreq("synced");
+    }
+  }, [source, show]);
+  if (!show) return null;
+  const handleSave = () => {
+    if (!name.trim()) {
+      toast.error("Source name is required");
+      return;
+    }
+    onSave({
+      id: source ? source.id : Date.now(),
+      name,
+      type,
+      emoji,
+      status: syncFreq,
+      lastSync: "Just now",
+      records: source ? source.records : "0",
+      connected: true
+    });
+  };
+  return /* @__PURE__ */ jsxDEV("div", { className: "fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4", children: /* @__PURE__ */ jsxDEV(motion.div, { initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, className: "bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between mb-4", children: [
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("h2", { className: "text-base font-bold", children: source ? `Configure Source` : `Add Data Source` }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 69,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-slate-400 mt-0.5", children: "Integrate transactional or custom analytics data" }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 70,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 68,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("button", { onClick: onClose, className: "w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center", children: /* @__PURE__ */ jsxDEV(X, { className: "w-4 h-4 text-slate-500" }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 73,
+        columnNumber: 13
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 72,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+      lineNumber: 67,
+      columnNumber: 9
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "space-y-4", children: [
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("label", { className: "text-xs font-bold text-slate-700 mb-1.5 block", children: "Source Name *" }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 79,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(
+          "input",
+          {
+            type: "text",
+            value: name,
+            onChange: (e) => setName(e.target.value),
+            className: "w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20",
+            placeholder: "e.g. Klaviyo Customer Leads"
+          },
+          void 0,
+          false,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 80,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 78,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-2 gap-3", children: [
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("label", { className: "text-xs font-bold text-slate-700 mb-1.5 block", children: "Category" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 91,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "select",
+            {
+              value: type,
+              onChange: (e) => setType(e.target.value),
+              className: "w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 bg-white",
+              children: [
+                /* @__PURE__ */ jsxDEV("option", { value: "Ad Platform", children: "Ad Platform" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                  lineNumber: 97,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ jsxDEV("option", { value: "Web Analytics", children: "Web Analytics" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                  lineNumber: 98,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ jsxDEV("option", { value: "eCommerce", children: "eCommerce" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                  lineNumber: 99,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ jsxDEV("option", { value: "CRM", children: "CRM" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                  lineNumber: 100,
+                  columnNumber: 17
+                }, this),
+                /* @__PURE__ */ jsxDEV("option", { value: "Payments", children: "Payments" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                  lineNumber: 101,
+                  columnNumber: 17
+                }, this)
+              ]
+            },
+            void 0,
+            true,
+            {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+              lineNumber: 92,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 90,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { children: [
+          /* @__PURE__ */ jsxDEV("label", { className: "text-xs font-bold text-slate-700 mb-1.5 block", children: "Icon Emoji" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 105,
+            columnNumber: 15
+          }, this),
+          /* @__PURE__ */ jsxDEV(
+            "input",
+            {
+              type: "text",
+              value: emoji,
+              onChange: (e) => setEmoji(e.target.value),
+              className: "w-full h-10 px-3 text-sm border border-slate-200 rounded-xl text-center focus:outline-none focus:ring-2 focus:ring-slate-900/20",
+              maxLength: 2
+            },
+            void 0,
+            false,
+            {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+              lineNumber: 106,
+              columnNumber: 15
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 104,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 89,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("label", { className: "text-xs font-bold text-slate-700 mb-1.5 block", children: "Initial Status" }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+          lineNumber: 117,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV(
+          "select",
+          {
+            value: syncFreq,
+            onChange: (e) => setSyncFreq(e.target.value),
+            className: "w-full h-10 px-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 bg-white",
+            children: [
+              /* @__PURE__ */ jsxDEV("option", { value: "synced", children: "Synced (Healthy)" }, void 0, false, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                lineNumber: 123,
+                columnNumber: 15
+              }, this),
+              /* @__PURE__ */ jsxDEV("option", { value: "warning", children: "Stale (Warning)" }, void 0, false, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                lineNumber: 124,
+                columnNumber: 15
+              }, this),
+              /* @__PURE__ */ jsxDEV("option", { value: "error", children: "Failed (Error)" }, void 0, false, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+                lineNumber: 125,
+                columnNumber: 15
+              }, this)
+            ]
+          },
+          void 0,
+          true,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 118,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 116,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "flex gap-3 pt-2", children: [
+        source && /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: () => onDelete(source.id),
+            className: "h-10 px-4 border border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 flex items-center justify-center font-bold",
+            children: "Disconnect"
+          },
+          void 0,
+          false,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 131,
+            columnNumber: 13
+          },
+          this
+        ),
+        /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: onClose,
+            className: "flex-1 h-10 border border-slate-200 rounded-xl text-sm font-semibold hover:bg-slate-50",
+            children: "Cancel"
+          },
+          void 0,
+          false,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 138,
+            columnNumber: 13
+          },
+          this
+        ),
+        /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: handleSave,
+            className: "flex-1 h-10 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800",
+            children: source ? "Save" : "Add Source"
+          },
+          void 0,
+          false,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+            lineNumber: 144,
+            columnNumber: 13
+          },
+          this
+        )
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+        lineNumber: 129,
+        columnNumber: 11
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+      lineNumber: 77,
+      columnNumber: 9
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+    lineNumber: 66,
+    columnNumber: 7
+  }, this) }, void 0, false, {
+    fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx",
+    lineNumber: 65,
+    columnNumber: 5
+  }, this);
+}
+_s(DataSourceModal, "RZc+6d4xCiZfZm90gtlyieSlRqM=");
+_c = DataSourceModal;
+var _c;
+$RefreshReg$(_c, "DataSourceModal");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/components/modals/DataSourceModal.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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LFlBQXdGO0FBQUE7QUFBQSxVQUZwRztBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEsUUFLQTtBQUFBLFFBQ0E7QUFBQSxVQUFDO0FBQUE7QUFBQSxZQUNDLFNBQVNjO0FBQUFBLFlBQ1QsV0FBVTtBQUFBLFlBRVRiLG1CQUFTLFNBQVM7QUFBQTtBQUFBLFVBSnJCO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxRQUtBO0FBQUEsV0FwQkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxhQXFCQTtBQUFBLFNBekVGO0FBQUE7QUFBQTtBQUFBO0FBQUEsV0EwRUE7QUFBQSxPQXJGRjtBQUFBO0FBQUE7QUFBQTtBQUFBLFNBc0ZBLEtBdkZGO0FBQUE7QUFBQTtBQUFBO0FBQUEsU0F3RkE7QUFFSjtBQUFDRyxHQWxJdUJOLGlCQUFlO0FBQUEsS0FBZkE7QUFBZSxJQUFBOEI7QUFBQSxhQUFBQSxJQUFBIiwibmFtZXMiOlsidXNlU3RhdGUiLCJ1c2VFZmZlY3QiLCJtb3Rpb24iLCJYIiwidG9hc3QiLCJEYXRhU291cmNlTW9kYWwiLCJzaG93Iiwib25DbG9zZSIsInNvdXJjZSIsIm9uU2F2ZSIsIm9uRGVsZXRlIiwiX3MiLCJuYW1lIiwic2V0TmFtZSIsInR5cGUiLCJzZXRUeXBlIiwiZW1vamkiLCJzZXRFbW9qaSIsInN5bmNGcmVxIiwic2V0U3luY0ZyZXEiLCJzdGF0dXMiLCJoYW5kbGVTYXZlIiwidHJpbSIsImVycm9yIiwiaWQiLCJEYXRlIiwibm93IiwibGFzdFN5bmMiLCJyZWNvcmRzIiwiY29ubmVjdGVkIiwib3BhY2l0eSIsInNjYWxlIiwiZSIsInRhcmdldCIsInZhbHVlIiwiX2MiXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiRGF0YVNvdXJjZU1vZGFsLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSwgdXNlRWZmZWN0IH0gZnJvbSAncmVhY3QnO1xuaW1wb3J0IHsgbW90aW9uIH0gZnJvbSAnbW90aW9uL3JlYWN0JztcbmltcG9ydCB7IFggfSBmcm9tICdsdWNpZGUtcmVhY3QnO1xuaW1wb3J0IHsgdG9hc3QgfSBmcm9tICdzb25uZXInO1xuXG5leHBvcnQgZGVmYXVsdCBmdW5jdGlvbiBEYXRhU291cmNlTW9kYWwoeyBzaG93LCBvbkNsb3NlLCBzb3VyY2UsIG9uU2F2ZSwgb25EZWxldGUgfTogYW55KSB7XG4gIGNvbnN0IFtuYW1lLCBzZXROYW1lXSA9IHVzZVN0YXRlKCcnKTtcbiAgY29uc3QgW3R5cGUsIHNldFR5cGVdID0gdXNlU3RhdGUoJ0FkIFBsYXRmb3JtJyk7XG4gIGNvbnN0IFtlbW9qaSwgc2V0RW1vamldID0gdXNlU3RhdGUoJ/Cfk4onKTtcbiAgY29uc3QgW3N5bmNGcmVxLCBzZXRTeW5jRnJlcV0gPSB1c2VTdGF0ZSgnc3luY2VkJyk7XG5cbiAgdXNlRWZmZWN0KCgpID0+IHtcbiAgICBpZiAoc291cmNlKSB7XG4gICAgICBzZXROYW1lKHNvdXJjZS5uYW1lKTtcbiAgICAgIHNldFR5cGUoc291cmNlLnR5cGUpO1xuICAgICAgc2V0RW1vamkoc291cmNlLmVtb2ppKTtcbiAgICAgIHNldFN5bmNGcmVxKHNvdXJjZS5zdGF0dXMpO1xuICAgIH0gZWxzZSB7XG4gICAgICBzZXROYW1lKCcnKTtcbiAgICAgIHNldFR5cGUoJ0FkIFBsYXRmb3JtJyk7XG4gICAgICBzZXRFbW9qaSgn8J+TiicpO1xuICAgICAgc2V0U3luY0ZyZXEoJ3N5bmNlZCcpO1xuICAgIH1cbiAgfSwgW3NvdXJjZSwgc2hvd10pO1xuXG4gIGlmICghc2hvdykgcmV0dXJuIG51bGw7XG5cbiAgY29uc3QgaGFuZGxlU2F2ZSA9ICgpID0+IHtcbiAgICBpZiAoIW5hbWUudHJpbSgpKSB7XG4gICAgICB0b2FzdC5lcnJvcignU291cmNlIG5hbWUgaXMgcmVxdWlyZWQnKTtcbiAgICAgIHJldHVybjtcbiAgICB9XG4gICAgb25TYXZlKHtcbiAgICAgIGlkOiBzb3VyY2UgPyBzb3VyY2UuaWQgOiBEYXRlLm5vdygpLFxuICAgICAgbmFtZSxcbiAgICAgIHR5cGUsXG4gICAgICBlbW9qaSxcbiAgICAgIHN0YXR1czogc3luY0ZyZXEsXG4gICAgICBsYXN0U3luYzogJ0p1c3Qgbm93JyxcbiAgICAgIHJlY29yZHM6IHNvdXJjZSA/IHNvdXJjZS5yZWNvcmRzIDogJzAnLFxuICAgICAgY29ubmVjdGVkOiB0cnVlXG4gICAgfSk7XG4gIH07XG5cbiAgcmV0dXJuIChcbiAgICA8ZGl2IGNsYXNzTmFtZT1cImZpeGVkIGluc2V0LTAgYmctYmxhY2svNDAgYmFja2Ryb3AtYmx1ci1zbSBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciB6LTUwIHAtNFwiPlxuICAgICAgPG1vdGlvbi5kaXYgaW5pdGlhbD17eyBvcGFjaXR5OiAwLCBzY2FsZTogMC45NSB9fSBhbmltYXRlPXt7IG9wYWNpdHk6IDEsIHNjYWxlOiAxIH19IGNsYXNzTmFtZT1cImJnLXdoaXRlIHJvdW5kZWQtMnhsIG1heC13LXNtIHctZnVsbCBwLTYgc2hhZG93LXhsXCI+XG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuIG1iLTRcIj5cbiAgICAgICAgICA8ZGl2PlxuICAgICAgICAgICAgPGgyIGNsYXNzTmFtZT1cInRleHQtYmFzZSBmb250LWJvbGRcIj57c291cmNlID8gYENvbmZpZ3VyZSBTb3VyY2VgIDogYEFkZCBEYXRhIFNvdXJjZWB9PC9oMj5cbiAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1zbGF0ZS00MDAgbXQtMC41XCI+SW50ZWdyYXRlIHRyYW5zYWN0aW9uYWwgb3IgY3VzdG9tIGFuYWx5dGljcyBkYXRhPC9wPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgIDxidXR0b24gb25DbGljaz17b25DbG9zZX0gY2xhc3NOYW1lPVwidy04IGgtOCByb3VuZGVkLWxnIGhvdmVyOmJnLXNsYXRlLTEwMCBmbGV4IGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlclwiPlxuICAgICAgICAgICAgPFggY2xhc3NOYW1lPVwidy00IGgtNCB0ZXh0LXNsYXRlLTUwMFwiIC8+XG4gICAgICAgICAgPC9idXR0b24+XG4gICAgICAgIDwvZGl2PlxuXG4gICAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BhY2UteS00XCI+XG4gICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJ0ZXh0LXhzIGZvbnQtYm9sZCB0ZXh0LXNsYXRlLTcwMCBtYi0xLjUgYmxvY2tcIj5Tb3VyY2UgTmFtZSAqPC9sYWJlbD5cbiAgICAgICAgICAgIDxpbnB1dFxuICAgICAgICAgICAgICB0eXBlPVwidGV4dFwiXG4gICAgICAgICAgICAgIHZhbHVlPXtuYW1lfVxuICAgICAgICAgICAgICBvbkNoYW5nZT17ZSA9PiBzZXROYW1lKGUudGFyZ2V0LnZhbHVlKX1cbiAgICAgICAgICAgICAgY2xhc3NOYW1lPVwidy1mdWxsIGgtMTAgcHgtMyB0ZXh0LXNtIGJvcmRlciBib3JkZXItc2xhdGUtMjAwIHJvdW5kZWQteGwgZm9jdXM6b3V0bGluZS1ub25lIGZvY3VzOnJpbmctMiBmb2N1czpyaW5nLXNsYXRlLTkwMC8yMFwiXG4gICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiZS5nLiBLbGF2aXlvIEN1c3RvbWVyIExlYWRzXCJcbiAgICAgICAgICAgIC8+XG4gICAgICAgICAgPC9kaXY+XG5cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQgZ3JpZC1jb2xzLTIgZ2FwLTNcIj5cbiAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJ0ZXh0LXhzIGZvbnQtYm9sZCB0ZXh0LXNsYXRlLTcwMCBtYi0xLjUgYmxvY2tcIj5DYXRlZ29yeTwvbGFiZWw+XG4gICAgICAgICAgICAgIDxzZWxlY3RcbiAgICAgICAgICAgICAgICB2YWx1ZT17dHlwZX1cbiAgICAgICAgICAgICAgICBvbkNoYW5nZT17ZSA9PiBzZXRUeXBlKGUudGFyZ2V0LnZhbHVlKX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgaC0xMCBweC0zIHRleHQtc20gYm9yZGVyIGJvcmRlci1zbGF0ZS0yMDAgcm91bmRlZC14bCBmb2N1czpvdXRsaW5lLW5vbmUgZm9jdXM6cmluZy0yIGZvY3VzOnJpbmctc2xhdGUtOTAwLzIwIGJnLXdoaXRlXCJcbiAgICAgICAgICAgICAgPlxuICAgICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJBZCBQbGF0Zm9ybVwiPkFkIFBsYXRmb3JtPC9vcHRpb24+XG4gICAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1ZT1cIldlYiBBbmFseXRpY3NcIj5XZWIgQW5hbHl0aWNzPC9vcHRpb24+XG4gICAgICAgICAgICAgICAgPG9wdGlvbiB2YWx1ZT1cImVDb21tZXJjZVwiPmVDb21tZXJjZTwvb3B0aW9uPlxuICAgICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJDUk1cIj5DUk08L29wdGlvbj5cbiAgICAgICAgICAgICAgICA8b3B0aW9uIHZhbHVlPVwiUGF5bWVudHNcIj5QYXltZW50czwvb3B0aW9uPlxuICAgICAgICAgICAgICA8L3NlbGVjdD5cbiAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgPGRpdj5cbiAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT1cInRleHQteHMgZm9udC1ib2xkIHRleHQtc2xhdGUtNzAwIG1iLTEuNSBibG9ja1wiPkljb24gRW1vamk8L2xhYmVsPlxuICAgICAgICAgICAgICA8aW5wdXRcbiAgICAgICAgICAgICAgICB0eXBlPVwidGV4dFwiXG4gICAgICAgICAgICAgICAgdmFsdWU9e2Vtb2ppfVxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IHNldEVtb2ppKGUudGFyZ2V0LnZhbHVlKX1cbiAgICAgICAgICAgICAgICBjbGFzc05hbWU9XCJ3LWZ1bGwgaC0xMCBweC0zIHRleHQtc20gYm9yZGVyIGJvcmRlci1zbGF0ZS0yMDAgcm91bmRlZC14bCB0ZXh0LWNlbnRlciBmb2N1czpvdXRsaW5lLW5vbmUgZm9jdXM6cmluZy0yIGZvY3VzOnJpbmctc2xhdGUtOTAwLzIwXCJcbiAgICAgICAgICAgICAgICBtYXhMZW5ndGg9ezJ9XG4gICAgICAgICAgICAgIC8+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8L2Rpdj5cblxuICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPVwidGV4dC14cyBmb250LWJvbGQgdGV4dC1zbGF0ZS03MDAgbWItMS41IGJsb2NrXCI+SW5pdGlhbCBTdGF0dXM8L2xhYmVsPlxuICAgICAgICAgICAgPHNlbGVjdFxuICAgICAgICAgICAgICB2YWx1ZT17c3luY0ZyZXF9XG4gICAgICAgICAgICAgIG9uQ2hhbmdlPXtlID0+IHNldFN5bmNGcmVxKGUudGFyZ2V0LnZhbHVlKX1cbiAgICAgICAgICAgICAgY2xhc3NOYW1lPVwidy1mdWxsIGgtMTAgcHgtMyB0ZXh0LXNtIGJvcmRlciBib3JkZXItc2xhdGUtMjAwIHJvdW5kZWQteGwgZm9jdXM6b3V0bGluZS1ub25lIGZvY3VzOnJpbmctMiBmb2N1czpyaW5nLXNsYXRlLTkwMC8yMCBiZy13aGl0ZVwiXG4gICAgICAgICAgICA+XG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJzeW5jZWRcIj5TeW5jZWQgKEhlYWx0aHkpPC9vcHRpb24+XG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJ3YXJuaW5nXCI+U3RhbGUgKFdhcm5pbmcpPC9vcHRpb24+XG4gICAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJlcnJvclwiPkZhaWxlZCAoRXJyb3IpPC9vcHRpb24+XG4gICAgICAgICAgICA8L3NlbGVjdD5cbiAgICAgICAgICA8L2Rpdj5cblxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBnYXAtMyBwdC0yXCI+XG4gICAgICAgICAgICB7c291cmNlICYmIChcbiAgICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IG9uRGVsZXRlKHNvdXJjZS5pZCl9XG4gICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiaC0xMCBweC00IGJvcmRlciBib3JkZXItcmVkLTIwMCB0ZXh0LXJlZC02MDAgcm91bmRlZC14bCB0ZXh0LXNtIGZvbnQtc2VtaWJvbGQgaG92ZXI6YmctcmVkLTUwIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGZvbnQtYm9sZFwiXG4gICAgICAgICAgICAgID5cbiAgICAgICAgICAgICAgICBEaXNjb25uZWN0XG4gICAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgKX1cbiAgICAgICAgICAgIDxidXR0b25cbiAgICAgICAgICAgICAgb25DbGljaz17b25DbG9zZX1cbiAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiZmxleC0xIGgtMTAgYm9yZGVyIGJvcmRlci1zbGF0ZS0yMDAgcm91bmRlZC14bCB0ZXh0LXNtIGZvbnQtc2VtaWJvbGQgaG92ZXI6Ymctc2xhdGUtNTBcIlxuICAgICAgICAgICAgPlxuICAgICAgICAgICAgICBDYW5jZWxcbiAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgICBvbkNsaWNrPXtoYW5kbGVTYXZlfVxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJmbGV4LTEgaC0xMCBiZy1zbGF0ZS05MDAgdGV4dC13aGl0ZSByb3VuZGVkLXhsIHRleHQtc20gZm9udC1zZW1pYm9sZCBob3ZlcjpiZy1zbGF0ZS04MDBcIlxuICAgICAgICAgICAgPlxuICAgICAgICAgICAgICB7c291cmNlID8gJ1NhdmUnIDogJ0FkZCBTb3VyY2UnfVxuICAgICAgICAgICAgPC9idXR0b24+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgIDwvZGl2PlxuICAgICAgPC9tb3Rpb24uZGl2PlxuICAgIDwvZGl2PlxuICApO1xufVxuIl0sImZpbGUiOiJDOi9Vc2Vycy9WZW5wZXAgb2ZmaWNlL0Rvd25sb2Fkcy9NaXAtbWFpbiAoMikvTWlwLW1haW4vc3JjL2FwcC9jb21wb25lbnRzL21vZGFscy9EYXRhU291cmNlTW9kYWwudHN4In0=

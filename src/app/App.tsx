@@ -1,7 +1,9 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Toaster, toast } from 'sonner';
 import { AppProvider, useApp, CLIENTS } from './context/AppContext';
+import { BrowserRouter, useLocation, useNavigate } from 'react-router';
+import FloatingAIAgent from './components/FloatingAIAgent';
 
 // Icons
 import {
@@ -51,12 +53,17 @@ type LoginProfile = {
 export default function App() {
   return (
     <AppProvider>
-      <AppShell />
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
     </AppProvider>
   );
 }
 
 function AppShell() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [profile, setProfile] = useState<LoginProfile | null>(() => {
     try {
       const saved = window.localStorage.getItem('marketiq.profile');
@@ -122,6 +129,88 @@ function AppShell() {
       window.history.replaceState({}, '', `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
     }
   }, [setActiveView]);
+
+
+  // Ensure dashboard loads on root path
+  useEffect(() => {
+    if (location.pathname === '/' && activeView !== 'dashboards') {
+      navigate('/dashboards', { replace: true });
+    }
+  }, [location.pathname, activeView, navigate]);
+
+  const activeViewRef = useRef(activeView);
+  const locationPathnameRef = useRef(location.pathname);
+
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
+
+  useEffect(() => {
+    locationPathnameRef.current = location.pathname;
+  }, [location.pathname]);
+
+  // Sync activeView changes to browser URL path (runs ONLY when activeView changes)
+  useEffect(() => {
+    const currentPath = locationPathnameRef.current;
+    let targetPath = '';
+    switch (activeView) {
+      case 'agency':
+        targetPath = '/dashboard';
+        break;
+      case 'campaigns':
+        targetPath = '/campaigns';
+        break;
+      case 'ai-analysis':
+        targetPath = '/brain';
+        break;
+      case 'analytics':
+        targetPath = '/analytics';
+        break;
+      case 'ai':
+        targetPath = '/ai-analysis';
+        break;
+      default:
+        targetPath = `/${activeView}`;
+        break;
+    }
+    if (currentPath !== targetPath) {
+      navigate(targetPath, { replace: true });
+    }
+  }, [activeView, navigate]);
+
+  // Sync browser URL path changes to activeView view state (runs ONLY when path changes)
+  useEffect(() => {
+    const path = location.pathname;
+    let targetView = '';
+    switch (path) {
+      case '/dashboard':
+        targetView = 'agency';
+        break;
+      case '/campaigns':
+        targetView = 'campaigns';
+        break;
+      case '/brain':
+        targetView = 'ai-analysis';
+        break;
+      case '/analytics':
+        targetView = 'analytics';
+        break;
+      case '/ai-analysis':
+        targetView = 'ai';
+        break;
+      case '/':
+        targetView = 'dashboards';
+        break;
+      default:
+        if (path.length > 1) {
+          targetView = path.substring(1);
+        }
+        break;
+    }
+    if (targetView && targetView !== activeViewRef.current) {
+      setActiveView(targetView);
+    }
+  }, [location.pathname, setActiveView]);
 
   if (!profile) {
     return <LoginScreen onContinue={setProfile} />;
@@ -237,7 +326,9 @@ function AppShell() {
             {activeView === 'analytics' && <AnalyticsScreen key="analytics" />}
             {activeView === 'audiences' && <AudiencesScreen key="audiences" />}
             {activeView === 'integrations' && <IntegrationsScreen key="integrations" />}
-            {activeView === 'dashboards' && <DashboardViewerScreen key="dashboard-viewer" />}
+            {activeView === 'dashboards' && (
+              selectedDashboard ? <DashboardViewerScreen key="dashboard-viewer" /> : <DashboardsScreen key="dashboards" />
+            )}
             {activeView === 'data' && <DataSourcesScreen key="data" />}
             {activeView === 'reports' && <ReportsScreen key="reports" />}
             {activeView === 'team' && <TeamScreen key="team" />}
@@ -319,6 +410,7 @@ function AppShell() {
           toast.success(`Data source "${ds?.name || 'Source'}" removed!`);
         }}
       />
+      <FloatingAIAgent />
     </div>
   );
 }

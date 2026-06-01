@@ -90,18 +90,31 @@ function extractJson(content: string): WidgetSpec {
 export async function queryWithGroq(
   prompt: string,
   tenantId: string,
-  history: ChatHistoryMessage[] = []
+  history: ChatHistoryMessage[] = [],
+  pageContext?: { page: string; data?: any }
 ): Promise<WidgetSpec> {
   const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
   });
+
+  let systemPrompt = SYSTEM_PROMPT;
+  if (pageContext && pageContext.page) {
+    systemPrompt = `User is currently on the ${pageContext.page} page.
+Live data they are looking at: ${JSON.stringify(pageContext.data || {})}.
+Answer their question in the context of this page and this data.
+Reference the actual numbers they can see on screen.
+
+[SYSTEM CRITICAL]: You MUST still generate and return a valid, precise SQL query in the "sql" key of the JSON object matching the user's request. Never return an empty or null "sql" string, as the analytics layer requires it to query GOLD_CAMPAIGN_DAILY.
+
+` + SYSTEM_PROMPT;
+  }
 
   const completion = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     temperature: 0.1,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       ...history,
       {
         role: 'user',
@@ -123,25 +136,36 @@ export async function generateInsightFromData(
   prompt: string,
   sql: string,
   data: unknown[],
-  tenantId: string
+  tenantId: string,
+  pageContext?: { page: string; data?: any }
 ): Promise<string> {
   const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
   });
 
-  const promptMessage = `
-You are the AI analytics layer for the MIP marketing dashboard.
+  let prepend = '';
+  if (pageContext && pageContext.page) {
+    prepend = `User is currently on the ${pageContext.page} page.
+Live data they are looking at on their screen: ${JSON.stringify(pageContext.data || {})}.
+You MUST answer their question by analyzing the live screen data they are looking at above. Reference the actual numbers, metrics, and names they see on screen.
+
+`;
+  }
+
+  const promptMessage = prepend + `You are the AI analytics layer for the MIP marketing dashboard.
 The user asked this marketing question: "${prompt}"
-You generated and ran this SQL query: "${sql}"
-The database returned these rows:
+You ran this SQL query: "${sql}" which returned these database rows:
 ${JSON.stringify(data, null, 2)}
 
-Based strictly on the database results above, write a concise, professional, and natural language answer to the user's question.
-- Reference specific numbers, metrics, platform names, and campaign names from the data.
+Write a concise, professional, and natural language answer to the user's question.
+- CRITICAL: Prioritize the "Live data they are looking at on their screen" (provided above) over the database results. Ensure all key numbers, spend, CPC, and conversions in your response match exactly what is displayed on their screen.
+- NEVER mention internal technical database terms, metadata, or queries (such as "GOLD_CAMPAIGN_DAILY", "SQL query", "database", "rows", "table", "tenant id", or developer-level details). Speak purely as a premium, business-level marketing strategist describing what is on their screen.
+- Use the database rows only to supplement or add specific details that align with the screen context. Never mention numbers that contradict the active screen data.
+- Reference specific platform names, campaign names, and metrics from the screen context.
 - Format money values (which are in INR) clearly with standard currency notation (e.g. ₹83,576 or ₹15.3L).
 - Format CPC/CPL clearly (e.g. ₹4.14 CPC or ₹230 Cost Per Lead) and prioritize Cost Per Click (CPC) or CPL over ROAS since this ad account represents lead generation campaigns.
 - Keep the response direct and short (2-3 sentences max).
-- If the data is empty, mention that no active campaigns or conversions were found matching their criteria.
+- If both the screen data and database data are empty, mention that no active campaigns or conversions were found.
 `;
 
   const completion = await groq.chat.completions.create({

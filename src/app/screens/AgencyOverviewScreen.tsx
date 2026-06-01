@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import PageWrapper from '../components/shared/PageWrapper';
 import { useState, useEffect } from 'react';
+import { useAgentStore } from '../../stores/agentStore';
 
 // Spend vs Conversions Trend Mock Data mapped to screenshot trajectory
 const spendConversionsTrend = [
@@ -179,6 +180,18 @@ export default function AgencyOverviewScreen() {
   const totalClicks = campaigns.reduce((s: number, c: any) => s + Number(c.clicks || 0), 0);
   const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
   const criticalCount = campaigns.filter((c: any) => c.status === 'critical').length;
+
+  const { setPageContext } = useAgentStore();
+  const avgCPC = avgCpc;
+  const totalConversions = totalConv;
+  const activeClients = clients.length;
+
+  useEffect(() => {
+    setPageContext({
+      page: 'agency_overview',
+      data: { totalSpend, avgCPC, totalConversions, activeClients }
+    });
+  }, [totalSpend, avgCPC, totalConversions, activeClients, setPageContext]);
 
   const clientStats = clients.map((client: any) => {
     const cc = campaigns.filter((c: any) => c.clientId === client.id);

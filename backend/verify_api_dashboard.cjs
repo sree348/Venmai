@@ -1,6 +1,6 @@
 const http = require('http');
 
-const url = 'http://localhost:3000/api/v1/dashboard/campaigns?from=2026-05-01T00:00:00.000Z&to=2026-05-25T23:59:59.999Z&clientId=cai_mahindra';
+const url = 'http://localhost:3000/api/v1/dashboard/campaigns?from=2026-03-01T00:00:00.000Z&to=2026-03-31T23:59:59.999Z&clientId=cai_mahindra&status=active';
 
 http.get(url, {
   headers: {
@@ -13,10 +13,11 @@ http.get(url, {
   res.on('end', () => {
     try {
       const campaigns = JSON.parse(data);
-      console.log(`Dashboard campaigns API returned ${campaigns.length} campaigns:`);
-      campaigns.forEach(c => {
+      console.log(`Dashboard campaigns API returned ${campaigns.length} campaigns for March 2026:`);
+      campaigns.slice(0, 10).forEach(c => {
         console.log(`- ${c.campaignName} (Platform: ${c.platform}, Spend: ${c.spend})`);
       });
+      if (campaigns.length > 10) console.log(`... and ${campaigns.length - 10} more`);
     } catch (e) {
       console.error("Failed to parse JSON:", e);
       console.log("Raw Response was:", data);

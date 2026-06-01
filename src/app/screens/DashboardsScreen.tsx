@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAgentStore } from '../../stores/agentStore';
 import { X, Plus, ChevronRight, Star, LayoutDashboard, Clock, Mail } from 'lucide-react';
 import PageWrapper from '../components/shared/PageWrapper';
 import ClientBadge from '../components/shared/ClientBadge';
@@ -18,6 +19,24 @@ export default function DashboardsScreen() {
     setSelectedDashboard: onViewDashboard,
   } = useApp();
 
+  const { setPageContext } = useAgentStore();
+
+  useEffect(() => {
+    setPageContext({
+      page: 'dashboards',
+      data: {
+        totalDashboards: dashboards.length,
+        dashboards: dashboards.map((d: any) => ({
+          name: d.name,
+          description: d.description,
+          platform: d.platform || 'Multi-platform',
+          widgets: d.widgets,
+          schedule: d.schedule,
+        }))
+      }
+    });
+  }, [dashboards, setPageContext]);
+
   // Get CLIENTS from context constant
   const { CLIENTS: clients } = useApp() as any;
 
@@ -33,6 +52,7 @@ export default function DashboardsScreen() {
   })).filter((g: any) => g.items.length > 0);
 
   const totalDashboards = dashboards.length;
+  const showClientGrouping = dashboardsByClient.length > 1 || !!selectedClientId;
 
   return (
     <PageWrapper>
@@ -45,7 +65,7 @@ export default function DashboardsScreen() {
                 Showing <ClientBadge client={activeClient} /> dashboards
               </span>
             ) : (
-              `${totalDashboards} dashboards across ${dashboardsByClient.length} clients`
+              `${totalDashboards} dashboard${totalDashboards !== 1 ? 's' : ''}${dashboardsByClient.length > 1 ? ` across ${dashboardsByClient.length} clients` : ''}`
             )}
           </div>
         </div>
@@ -62,7 +82,7 @@ export default function DashboardsScreen() {
       </div>
 
       {/* Client Filter Pills */}
-      {!selectedClientId && (
+      {!selectedClientId && clients.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-slate-500 font-semibold">Filter by client:</span>
           {clients.map((client: any) => {
@@ -79,20 +99,24 @@ export default function DashboardsScreen() {
         </div>
       )}
 
-      {/* Favorites (only when showing all) */}
-      {!selectedClientId && dashboards.some((d: any) => d.favorite) && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">Starred</p>
-            <span className="text-xs text-slate-400">({dashboards.filter((d: any) => d.favorite).length})</span>
+      {/* Empty State */}
+      {dashboards.length === 0 && (
+        <div className="flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-slate-100 bg-white rounded-3xl shadow-sm max-w-xl mx-auto my-8">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#6366F1] mb-5 animate-pulse shadow-inner">
+            <LayoutDashboard className="w-8 h-8" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {dashboards.filter((d: any) => d.favorite).map((d: any) => {
-              const client = clients.find((c: any) => c.id === d.clientId);
-              return <DashboardCard key={d.id} dashboard={d} client={client} onView={() => onViewDashboard(d.id)} onToggleFav={toggleFavorite} />;
-            })}
-          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-2">No Dashboards Created</h2>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-sm mb-6">
+            {selectedClientId && activeClient 
+              ? `There are no ad performance dashboards created for ${activeClient.name} yet. Create one to track conversions, spend, and CPC trends.`
+              : 'There are no dashboards configured in this workspace. Create your first dashboard to get started.'}
+          </p>
+          <button
+            onClick={() => setShowDashboardModal(true)}
+            className="px-5 py-2.5 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-white rounded-xl text-xs font-bold hover:scale-[1.03] active:scale-[0.98] transition-transform shadow-md cursor-pointer border-0"
+          >
+            Create First Dashboard
+          </button>
         </div>
       )}
 
@@ -100,7 +124,7 @@ export default function DashboardsScreen() {
       {dashboardsByClient.map(({ client, items }: any) => (
         <div key={client.id} className="space-y-3">
           {/* Client Section Header */}
-          <div className={`flex items-center justify-between p-3.5 rounded-xl border mb-3 ${client.lightBg} ${client.lightBorder}`}>
+          {showClientGrouping && <div className={`flex items-center justify-between p-3.5 rounded-xl border mb-3 ${client.lightBg} ${client.lightBorder}`}>
             <div className="flex items-center gap-3">
               <ClientAvatar client={client} size="sm" />
               <div>
@@ -119,7 +143,7 @@ export default function DashboardsScreen() {
                 {selectedClientId === client.id ? 'Show all' : 'Filter'} <ChevronRight className="w-3 h-3" />
               </button>
             </div>
-          </div>
+          </div>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
             {items.map((d: any) => (

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+      <script type="module">import { injectIntoGlobalHook } from "/@react-refresh";
+injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;</script>
+
+      <script type="module" src="/@vite/client"></script>
+
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>MIP ui</title>
+      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    </head>
+
+    <body>
+      <div id="root"></div>
+      <script type="module" src="/src/main.tsx?t=1780301864783"></script>
+    
+  
+  <vite-error-overlay></vite-error-overlay></body></html>

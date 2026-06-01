@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAgentStore } from '../../stores/agentStore';
 import {
   ChevronRight, ArrowRight, LayoutDashboard, Clock, Plus
 } from 'lucide-react';
@@ -16,6 +18,68 @@ export default function ClientsScreen() {
   const { CLIENTS: clients } = useApp() as any; // Loaded from context constants
 
   const activeClient = selectedClientId ? clients.find((c: any) => c.id === selectedClientId) : null;
+
+  const { setPageContext } = useAgentStore();
+
+  useEffect(() => {
+    if (activeClient) {
+      const cc = campaigns.filter((c: any) => c.clientId === activeClient.id);
+      const cd = dashboards.filter((d: any) => d.clientId === activeClient.id);
+      const spend = cc.reduce((s: number, c: any) => s + c.spend, 0);
+      const clicks = cc.reduce((s: number, c: any) => s + Number(c.clicks || 0), 0);
+      const avgCpc = clicks > 0 ? spend / clicks : 0;
+      const conv = cc.reduce((s: number, c: any) => s + c.conv, 0);
+
+      setPageContext({
+        page: 'clients',
+        data: {
+          activeClient: {
+            name: activeClient.name,
+            industry: activeClient.industry,
+            manager: activeClient.accountManager,
+            retainer: activeClient.retainer,
+            monthlyBudget: activeClient.monthlyBudget,
+            since: activeClient.since,
+            status: activeClient.status,
+            spend,
+            avgCpc,
+            conversions: conv,
+            campaignsCount: cc.length,
+            dashboardsCount: cd.length,
+          }
+        }
+      });
+    } else {
+      const clientsList = clients.map((c: any) => {
+        const cc = campaigns.filter((x: any) => x.clientId === c.id);
+        const cd = dashboards.filter((d: any) => d.clientId === c.id);
+        const spend = cc.reduce((s: number, campaign: any) => s + campaign.spend, 0);
+        const clicks = cc.reduce((s: number, campaign: any) => s + Number(campaign.clicks || 0), 0);
+        const avgCpc = clicks > 0 ? spend / clicks : 0;
+        const conv = cc.reduce((s: number, campaign: any) => s + campaign.conv, 0);
+
+        return {
+          name: c.name,
+          industry: c.industry,
+          status: c.status,
+          manager: c.accountManager,
+          spend,
+          avgCpc,
+          conversions: conv,
+          campaignsCount: cc.length,
+          dashboardsCount: cd.length,
+        };
+      });
+
+      setPageContext({
+        page: 'clients',
+        data: {
+          totalClients: clients.length,
+          clients: clientsList
+        }
+      });
+    }
+  }, [activeClient, clients, campaigns, dashboards, setPageContext]);
 
   const onViewDashboards = (clientId: string) => {
     setSelectedClientId(clientId);

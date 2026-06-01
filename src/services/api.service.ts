@@ -112,7 +112,7 @@ export const apiService = {
     return request(`/dashboard/top-campaigns?${search.toString()}`);
   },
 
-  async getDashboardCampaigns(params: { clientId?: string | null; from: string; to: string; status?: string }) {
+  async getDashboardCampaigns(params: { clientId?: string | null; from: string; to: string; status?: string; platform?: string }) {
     if (MOCK_MODE) {
       // In mock mode return ALL campaigns for the client regardless of date range
       const campaigns = params.clientId ? mockCampaigns.filter(c => c.clientId === params.clientId) : mockCampaigns;
@@ -122,24 +122,27 @@ export const apiService = {
     const search = new URLSearchParams({ from: params.from, to: params.to });
     if (params.clientId) search.set('clientId', params.clientId);
     if (params.status) search.set('status', params.status);
+    if (params.platform) search.set('platform', params.platform);
     return request(`/dashboard/campaigns?${search.toString()}`);
   },
 
-  async getLastSynced(clientId?: string | null) {
+  async getLastSynced(clientId?: string | null, platform?: string) {
     if (MOCK_MODE) {
       return { lastSyncedAt: new Date().toISOString(), campaignCount: mockCampaigns.length, dataFrom: null, dataTo: null };
     }
 
     const search = new URLSearchParams();
     if (clientId) search.set('clientId', clientId);
+    if (platform) search.set('platform', platform);
     return request(`/dashboard/last-synced?${search.toString()}`);
   },
 
-  async getMonthlyTrend(params: { clientId?: string | null; from: string; to: string }) {
+  async getMonthlyTrend(params: { clientId?: string | null; from: string; to: string; platform?: string }) {
     if (MOCK_MODE) return [];
 
     const search = new URLSearchParams({ from: params.from, to: params.to });
     if (params.clientId) search.set('clientId', params.clientId);
+    if (params.platform) search.set('platform', params.platform);
     return request(`/dashboard/monthly-trend?${search.toString()}`);
   },
 
@@ -182,12 +185,12 @@ export const apiService = {
     return request<any[]>(`/ads?adsetId=${encodeURIComponent(adsetId)}`);
   },
 
-  async chat(prompt: string, tenantId: string, history: { role: string; content: string }[], context?: any) {
-    if (MOCK_MODE) return clone(buildMockChatResponse(prompt, context));
+  async chat(prompt: string, tenantId: string, history: { role: string; content: string }[], pageContext?: any) {
+    if (MOCK_MODE) return clone(buildMockChatResponse(prompt, pageContext));
 
     return request<{ widget: any; insight: string }>('/chat', {
       method: 'POST',
-      body: JSON.stringify({ prompt, tenantId, history }),
+      body: JSON.stringify({ prompt, tenantId, clientId: tenantId, history, pageContext }),
     });
   },
 

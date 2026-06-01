@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAgentStore } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
 import { Sparkles, Trash2, Send, Cpu, Lightbulb, AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, Zap, Settings, Pin, ChevronDown, Pause, Plus, Edit, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -828,6 +829,23 @@ export default function AIScreen() {
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
     return ctr >= 2 ? sum + spend : sum;
   }, 0);
+
+  const { setPageContext } = useAgentStore();
+  const criticalCount = alerts.filter((a: any) => a.priority === 'critical').length;
+
+  useEffect(() => {
+    if (activeView === 'ai-analysis') {
+      setPageContext({
+        page: 'ai_brain',
+        data: { criticalCount, budgetAtRisk, scaleOpportunity }
+      });
+    } else if (activeView === 'ai') {
+      setPageContext({
+        page: 'ai_analysis',
+        data: {}
+      });
+    }
+  }, [activeView, criticalCount, budgetAtRisk, scaleOpportunity, setPageContext]);
 
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');

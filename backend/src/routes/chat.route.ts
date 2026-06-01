@@ -10,7 +10,7 @@ export const chatRouter = Router();
 // POST /api/v1/chat
 chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const { prompt, tenantId = req.auth!.tenantId, history = [] } = req.body || {};
+    const { prompt, tenantId = req.auth!.tenantId, history = [], pageContext } = req.body || {};
 
     if (!prompt || !tenantId) {
       return res.status(400).json({ error: 'prompt and tenantId are required.' });
@@ -21,7 +21,7 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
     }
 
     // Call Groq to get the SQL and initial structured response
-    const spec = await queryWithGroq(prompt, tenantId, history);
+    const spec = await queryWithGroq(prompt, tenantId, history, pageContext);
     
     // Execute the returned SQL against the DB
     let rows: any[] = [];
@@ -40,7 +40,7 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
     // Call generateInsightFromData to build a true, data-grounded natural language explanation!
     let liveInsight = spec.insight;
     try {
-      liveInsight = await generateInsightFromData(prompt, spec.sql, rows, tenantId);
+      liveInsight = await generateInsightFromData(prompt, spec.sql, rows, tenantId, pageContext);
     } catch (insightErr) {
       console.error('Failed to generate live insight:', insightErr);
     }

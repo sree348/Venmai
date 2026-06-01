@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAgentStore } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
 import { apiService } from '../../services/api.service';
 import { X, Plus, ChevronRight, Target, Trash2, Eye, Edit, Pause, Play, MoreVertical, Layers, Tv, Folder, Megaphone, CheckSquare, Square, Copy, ArrowUpDown, Calendar, ChevronDown } from 'lucide-react';
@@ -308,6 +309,23 @@ export default function CampaignsScreen() {
       if (b.year !== a.year) return b.year - a.year;
       return b.month - a.month;
     });
+
+  const { setPageContext } = useAgentStore();
+  const activeCampaignCount = campaigns.filter((c: any) => c.active || c.status === 'active').length;
+  const sortedBySpend = [...campaigns].sort((a, b) => b.spend - a.spend);
+  const topCampaignBySpend = sortedBySpend[0]?.name || 'None';
+  
+  const sortedByCpc = [...campaigns]
+    .filter((c: any) => (c.clicks || 0) > 0)
+    .sort((a, b) => (b.spend / (b.clicks || 1)) - (a.spend / (a.clicks || 1)));
+  const worstCPC = sortedByCpc[0] ? `${sortedByCpc[0].name} (₹${(sortedByCpc[0].spend / sortedByCpc[0].clicks).toFixed(2)})` : 'None';
+
+  useEffect(() => {
+    setPageContext({
+      page: 'campaigns',
+      data: { activeCampaignCount, topCampaignBySpend, worstCPC }
+    });
+  }, [activeCampaignCount, topCampaignBySpend, worstCPC, setPageContext]);
 
   const filteredAdSets = allAdSets.filter(as => {
     // Filter by status filter

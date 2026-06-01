@@ -1,0 +1,490 @@
+import { createHotContext as __vite__createHotContext } from "/@vite/client";import.meta.hot = __vite__createHotContext("/src/app/screens/DashboardsScreen.tsx");import __vite__cjsImport0_react_jsxDevRuntime from "/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=afc3ef3c"; const jsxDEV = __vite__cjsImport0_react_jsxDevRuntime["jsxDEV"];
+import * as RefreshRuntime from "/@react-refresh";
+const inWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+let prevRefreshReg;
+let prevRefreshSig;
+if (import.meta.hot && !inWebWorker) {
+  if (!window.$RefreshReg$) {
+    throw new Error(
+      "@vitejs/plugin-react can't detect preamble. Something is wrong."
+    );
+  }
+  prevRefreshReg = window.$RefreshReg$;
+  prevRefreshSig = window.$RefreshSig$;
+  window.$RefreshReg$ = RefreshRuntime.getRefreshReg("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx");
+  window.$RefreshSig$ = RefreshRuntime.createSignatureFunctionForTransform;
+}
+var _s = $RefreshSig$();
+import __vite__cjsImport3_react from "/node_modules/.vite/deps/react.js?v=afc3ef3c"; const useEffect = __vite__cjsImport3_react["useEffect"];
+import { useApp } from "/src/app/context/AppContext.tsx?t=1780301667170";
+import { useAgentStore } from "/src/stores/agentStore.ts";
+import { X, Plus, ChevronRight, Star, LayoutDashboard, Clock, Mail } from "/node_modules/.vite/deps/lucide-react.js?v=afc3ef3c";
+import PageWrapper from "/src/app/components/shared/PageWrapper.tsx";
+import ClientBadge from "/src/app/components/shared/ClientBadge.tsx";
+import ClientAvatar from "/src/app/components/shared/ClientAvatar.tsx";
+import PlatformDot from "/src/app/components/shared/PlatformDot.tsx";
+export default function DashboardsScreen() {
+  _s();
+  const {
+    scopedDashboards: dashboards,
+    dashboards: allDashboards,
+    setDashboards,
+    activeClient,
+    selectedClientId,
+    setSelectedClientId,
+    setShowDashboardModal,
+    setSelectedDashboard: onViewDashboard
+  } = useApp();
+  const { setPageContext } = useAgentStore();
+  useEffect(() => {
+    setPageContext({
+      page: "dashboards",
+      data: {
+        totalDashboards: dashboards.length,
+        dashboards: dashboards.map((d) => ({
+          name: d.name,
+          description: d.description,
+          platform: d.platform || "Multi-platform",
+          widgets: d.widgets,
+          schedule: d.schedule
+        }))
+      }
+    });
+  }, [dashboards, setPageContext]);
+  const { CLIENTS: clients } = useApp();
+  const toggleFavorite = (id, e) => {
+    e.stopPropagation();
+    setDashboards(allDashboards.map((d) => d.id === id ? { ...d, favorite: !d.favorite } : d));
+  };
+  const dashboardsByClient = clients.map((client) => ({
+    client,
+    items: dashboards.filter((d) => d.clientId === client.id)
+  })).filter((g) => g.items.length > 0);
+  const totalDashboards = dashboards.length;
+  const showClientGrouping = dashboardsByClient.length > 1 || !!selectedClientId;
+  return /* @__PURE__ */ jsxDEV(PageWrapper, { children: [
+    /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4", children: [
+      /* @__PURE__ */ jsxDEV("div", { children: [
+        /* @__PURE__ */ jsxDEV("h1", { className: "text-2xl font-bold text-slate-900", children: "Dashboards" }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 80,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "text-sm text-slate-500 mt-0.5", children: selectedClientId && activeClient ? /* @__PURE__ */ jsxDEV("span", { className: "flex items-center gap-1", children: [
+          "Showing ",
+          /* @__PURE__ */ jsxDEV(ClientBadge, { client: activeClient }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 84,
+            columnNumber: 25
+          }, this),
+          " dashboards"
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 83,
+          columnNumber: 13
+        }, this) : `${totalDashboards} dashboard${totalDashboards !== 1 ? "s" : ""}${dashboardsByClient.length > 1 ? ` across ${dashboardsByClient.length} clients` : ""}` }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 81,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 79,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: [
+        selectedClientId && /* @__PURE__ */ jsxDEV("button", { onClick: () => setSelectedClientId(null), className: "h-9 px-3 border border-slate-200 bg-white rounded-xl text-xs font-semibold hover:bg-slate-50 flex items-center gap-1.5 shadow-sm cursor-pointer", children: [
+          /* @__PURE__ */ jsxDEV(X, { className: "w-3 h-3" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 94,
+            columnNumber: 15
+          }, this),
+          " Clear Filter"
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 93,
+          columnNumber: 11
+        }, this),
+        /* @__PURE__ */ jsxDEV("button", { onClick: () => setShowDashboardModal(true), className: "h-9 px-4 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-800 flex items-center gap-2 shadow-sm cursor-pointer", children: [
+          /* @__PURE__ */ jsxDEV(Plus, { className: "w-4 h-4" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 98,
+            columnNumber: 13
+          }, this),
+          " New Dashboard"
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 97,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 91,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+      lineNumber: 78,
+      columnNumber: 7
+    }, this),
+    !selectedClientId && clients.length > 1 && /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2 flex-wrap", children: [
+      /* @__PURE__ */ jsxDEV("span", { className: "text-xs text-slate-500 font-semibold", children: "Filter by client:" }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 106,
+        columnNumber: 11
+      }, this),
+      clients.map((client) => {
+        const count = allDashboards.filter((d) => d.clientId === client.id).length;
+        return /* @__PURE__ */ jsxDEV(
+          "button",
+          {
+            onClick: () => setSelectedClientId(client.id),
+            className: `flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all hover:shadow-sm cursor-pointer ${client.lightBg} ${client.lightBorder} ${client.textColor}`,
+            children: [
+              /* @__PURE__ */ jsxDEV("span", { className: `w-2 h-2 rounded-full ${client.dotColor}` }, void 0, false, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                lineNumber: 112,
+                columnNumber: 17
+              }, this),
+              client.name,
+              /* @__PURE__ */ jsxDEV("span", { className: "opacity-60", children: [
+                "(",
+                count,
+                ")"
+              ] }, void 0, true, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                lineNumber: 114,
+                columnNumber: 17
+              }, this)
+            ]
+          },
+          client.id,
+          true,
+          {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 110,
+            columnNumber: 13
+          },
+          this
+        );
+      })
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+      lineNumber: 105,
+      columnNumber: 7
+    }, this),
+    dashboards.length === 0 && /* @__PURE__ */ jsxDEV("div", { className: "flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-slate-100 bg-white rounded-3xl shadow-sm max-w-xl mx-auto my-8", children: [
+      /* @__PURE__ */ jsxDEV("div", { className: "w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-[#6366F1] mb-5 animate-pulse shadow-inner", children: /* @__PURE__ */ jsxDEV(LayoutDashboard, { className: "w-8 h-8" }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 125,
+        columnNumber: 13
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 124,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("h2", { className: "text-lg font-bold text-slate-900 mb-2", children: "No Dashboards Created" }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 127,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "text-xs text-slate-500 leading-relaxed max-w-sm mb-6", children: selectedClientId && activeClient ? `There are no ad performance dashboards created for ${activeClient.name} yet. Create one to track conversions, spend, and CPC trends.` : "There are no dashboards configured in this workspace. Create your first dashboard to get started." }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 128,
+        columnNumber: 11
+      }, this),
+      /* @__PURE__ */ jsxDEV(
+        "button",
+        {
+          onClick: () => setShowDashboardModal(true),
+          className: "px-5 py-2.5 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] text-white rounded-xl text-xs font-bold hover:scale-[1.03] active:scale-[0.98] transition-transform shadow-md cursor-pointer border-0",
+          children: "Create First Dashboard"
+        },
+        void 0,
+        false,
+        {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 133,
+          columnNumber: 11
+        },
+        this
+      )
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+      lineNumber: 123,
+      columnNumber: 7
+    }, this),
+    dashboardsByClient.map(
+      ({ client, items }) => /* @__PURE__ */ jsxDEV("div", { className: "space-y-3", children: [
+        showClientGrouping && /* @__PURE__ */ jsxDEV("div", { className: `flex items-center justify-between p-3.5 rounded-xl border mb-3 ${client.lightBg} ${client.lightBorder}`, children: [
+          /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-3", children: [
+            /* @__PURE__ */ jsxDEV(ClientAvatar, { client, size: "sm" }, void 0, false, {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 148,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV("div", { children: [
+              /* @__PURE__ */ jsxDEV("p", { className: `text-sm font-bold ${client.textColor}`, children: client.name }, void 0, false, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                lineNumber: 150,
+                columnNumber: 17
+              }, this),
+              /* @__PURE__ */ jsxDEV("p", { className: "text-[11px] text-slate-500", children: [
+                client.industry,
+                " · ",
+                items.length,
+                " dashboard",
+                items.length !== 1 ? "s" : ""
+              ] }, void 0, true, {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                lineNumber: 151,
+                columnNumber: 17
+              }, this)
+            ] }, void 0, true, {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 149,
+              columnNumber: 15
+            }, this)
+          ] }, void 0, true, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 147,
+            columnNumber: 13
+          }, this),
+          /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-1.5", children: client.platforms.map((p) => /* @__PURE__ */ jsxDEV(PlatformDot, { platform: p }, p, false, {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 156,
+              columnNumber: 54
+            }, this)) }, void 0, false, {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 155,
+              columnNumber: 15
+            }, this),
+            /* @__PURE__ */ jsxDEV(
+              "button",
+              {
+                onClick: () => setSelectedClientId(selectedClientId === client.id ? null : client.id),
+                className: "text-[11px] font-semibold text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-1 cursor-pointer",
+                children: [
+                  selectedClientId === client.id ? "Show all" : "Filter",
+                  " ",
+                  /* @__PURE__ */ jsxDEV(ChevronRight, { className: "w-3 h-3" }, void 0, false, {
+                    fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                    lineNumber: 162,
+                    columnNumber: 74
+                  }, this)
+                ]
+              },
+              void 0,
+              true,
+              {
+                fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                lineNumber: 158,
+                columnNumber: 15
+              },
+              this
+            )
+          ] }, void 0, true, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 154,
+            columnNumber: 13
+          }, this)
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 146,
+          columnNumber: 34
+        }, this),
+        /* @__PURE__ */ jsxDEV("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2", children: [
+          items.map(
+            (d) => /* @__PURE__ */ jsxDEV(DashboardCard, { dashboard: d, client, onView: () => onViewDashboard(d.id), onToggleFav: toggleFavorite }, d.id, false, {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 169,
+              columnNumber: 11
+            }, this)
+          ),
+          /* @__PURE__ */ jsxDEV(
+            "button",
+            {
+              onClick: () => {
+                setSelectedClientId(client.id);
+                setShowDashboardModal(true);
+              },
+              className: "flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-2xl p-6 hover:border-slate-300 hover:bg-slate-50 transition-all text-slate-400 hover:text-slate-600 min-h-[120px] cursor-pointer",
+              children: [
+                /* @__PURE__ */ jsxDEV(Plus, { className: "w-5 h-5" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                  lineNumber: 174,
+                  columnNumber: 15
+                }, this),
+                /* @__PURE__ */ jsxDEV("p", { className: "text-xs font-semibold", children: "Add Dashboard" }, void 0, false, {
+                  fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+                  lineNumber: 175,
+                  columnNumber: 15
+                }, this)
+              ]
+            },
+            void 0,
+            true,
+            {
+              fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+              lineNumber: 172,
+              columnNumber: 13
+            },
+            this
+          )
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 167,
+          columnNumber: 11
+        }, this)
+      ] }, client.id, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 144,
+        columnNumber: 7
+      }, this)
+    )
+  ] }, void 0, true, {
+    fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+    lineNumber: 77,
+    columnNumber: 5
+  }, this);
+}
+_s(DashboardsScreen, "BF1ohUS29CrYEYNhH+n5FeFrSak=", false, function() {
+  return [useApp, useAgentStore, useApp];
+});
+_c = DashboardsScreen;
+function DashboardCard({ dashboard: d, client, onView, onToggleFav }) {
+  return /* @__PURE__ */ jsxDEV("div", { onClick: onView, className: "bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-slate-300 hover:shadow-md transition-all cursor-pointer group", children: [
+    /* @__PURE__ */ jsxDEV("div", { className: `h-24 bg-gradient-to-br ${d.color} flex items-end justify-between p-3 relative`, children: [
+      /* @__PURE__ */ jsxDEV(LayoutDashboard, { className: "absolute top-3 left-3 w-8 h-8 text-slate-300/60" }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 188,
+        columnNumber: 9
+      }, this),
+      d.schedule && /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-1 px-2 py-1 bg-white/80 text-slate-700 rounded-lg text-[9px] font-bold", children: [
+        /* @__PURE__ */ jsxDEV(Clock, { className: "w-2 h-2" }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 191,
+          columnNumber: 13
+        }, this),
+        d.schedule
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 190,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("button", { onClick: (e) => onToggleFav(d.id, e), className: "ml-auto w-6 h-6 bg-white/80 rounded-md flex items-center justify-center hover:bg-white transition-colors cursor-pointer", children: /* @__PURE__ */ jsxDEV(Star, { className: `w-3 h-3 ${d.favorite ? "text-amber-500 fill-amber-500" : "text-slate-400"}` }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 195,
+        columnNumber: 11
+      }, this) }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 194,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+      lineNumber: 187,
+      columnNumber: 7
+    }, this),
+    /* @__PURE__ */ jsxDEV("div", { className: "p-3.5", children: [
+      client && /* @__PURE__ */ jsxDEV("div", { className: "flex items-center gap-1.5 mb-2", children: [
+        /* @__PURE__ */ jsxDEV("span", { className: `w-2 h-2 rounded-full ${client.dotColor}` }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 201,
+          columnNumber: 13
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { className: `text-[10px] font-bold ${client.textColor}`, children: client.name }, void 0, false, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 202,
+          columnNumber: 13
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 200,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "text-xs font-bold text-slate-900 mb-0.5 group-hover:text-slate-700 transition-colors", children: d.name }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 205,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("p", { className: "text-[11px] text-slate-400 mb-2.5", children: d.description }, void 0, false, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 206,
+        columnNumber: 9
+      }, this),
+      /* @__PURE__ */ jsxDEV("div", { className: "flex items-center justify-between text-[10px] text-slate-400", children: [
+        /* @__PURE__ */ jsxDEV("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsxDEV(LayoutDashboard, { className: "w-2.5 h-2.5" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 208,
+            columnNumber: 53
+          }, this),
+          d.widgets,
+          " widgets"
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 208,
+          columnNumber: 11
+        }, this),
+        d.recipients > 0 && /* @__PURE__ */ jsxDEV("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsxDEV(Mail, { className: "w-2.5 h-2.5" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 209,
+            columnNumber: 74
+          }, this),
+          d.recipients
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 209,
+          columnNumber: 32
+        }, this),
+        /* @__PURE__ */ jsxDEV("span", { className: "flex items-center gap-1", children: [
+          /* @__PURE__ */ jsxDEV(Clock, { className: "w-2.5 h-2.5" }, void 0, false, {
+            fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+            lineNumber: 210,
+            columnNumber: 53
+          }, this),
+          d.updated
+        ] }, void 0, true, {
+          fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+          lineNumber: 210,
+          columnNumber: 11
+        }, this)
+      ] }, void 0, true, {
+        fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+        lineNumber: 207,
+        columnNumber: 9
+      }, this)
+    ] }, void 0, true, {
+      fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+      lineNumber: 198,
+      columnNumber: 7
+    }, this)
+  ] }, void 0, true, {
+    fileName: "C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx",
+    lineNumber: 186,
+    columnNumber: 5
+  }, this);
+}
+_c2 = DashboardCard;
+var _c, _c2;
+$RefreshReg$(_c, "DashboardsScreen");
+$RefreshReg$(_c2, "DashboardCard");
+if (import.meta.hot && !inWebWorker) {
+  window.$RefreshReg$ = prevRefreshReg;
+  window.$RefreshSig$ = prevRefreshSig;
+}
+if (import.meta.hot && !inWebWorker) {
+  RefreshRuntime.__hmr_import(import.meta.url).then((currentExports) => {
+    RefreshRuntime.registerExportsForReactRefresh("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx", currentExports);
+    import.meta.hot.accept((nextExports) => {
+      if (!nextExports) return;
+      const invalidateMessage = RefreshRuntime.validateRefreshBoundaryAndEnqueueUpdate("C:/Users/Venpep office/Downloads/Mip-main (2)/Mip-main/src/app/screens/DashboardsScreen.tsx", currentExports, nextExports);
+      if (invalidateMessage) import.meta.hot.invalidate(invalidateMessage);
+    });
+  });
+}
+
+//# sourceMappingURL=data:application/json;base64,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LDJCQUEwQjtBQUFBLGlDQUFDLG1CQUFnQixXQUFVLGlCQUEzQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUF3QztBQUFBLFVBQUlGLEVBQUVJO0FBQUFBLFVBQVE7QUFBQSxhQUFoRztBQUFBO0FBQUE7QUFBQTtBQUFBLGVBQXdHO0FBQUEsUUFDdkdKLEVBQUVpQyxhQUFhLEtBQUssdUJBQUMsVUFBSyxXQUFVLDJCQUEwQjtBQUFBLGlDQUFDLFFBQUssV0FBVSxpQkFBaEI7QUFBQTtBQUFBO0FBQUE7QUFBQSxpQkFBNkI7QUFBQSxVQUFJakMsRUFBRWlDO0FBQUFBLGFBQTdFO0FBQUE7QUFBQTtBQUFBO0FBQUEsZUFBd0Y7QUFBQSxRQUM3Ryx1QkFBQyxVQUFLLFdBQVUsMkJBQTBCO0FBQUEsaUNBQUMsU0FBTSxXQUFVLGlCQUFqQjtBQUFBO0FBQUE7QUFBQTtBQUFBLGlCQUE4QjtBQUFBLFVBQUlqQyxFQUFFa0M7QUFBQUEsYUFBOUU7QUFBQTtBQUFBO0FBQUE7QUFBQSxlQUFzRjtBQUFBLFdBSHhGO0FBQUE7QUFBQTtBQUFBO0FBQUEsYUFJQTtBQUFBLFNBYkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxXQWNBO0FBQUEsT0ExQkY7QUFBQTtBQUFBO0FBQUE7QUFBQSxTQTJCQTtBQUVKO0FBQUNDLE1BL0JRUDtBQUFhLElBQUFRLElBQUFEO0FBQUEsYUFBQUMsSUFBQTtBQUFBLGFBQUFELEtBQUEiLCJuYW1lcyI6WyJ1c2VFZmZlY3QiLCJ1c2VBcHAiLCJ1c2VBZ2VudFN0b3JlIiwiWCIsIlBsdXMiLCJDaGV2cm9uUmlnaHQiLCJTdGFyIiwiTGF5b3V0RGFzaGJvYXJkIiwiQ2xvY2siLCJNYWlsIiwiUGFnZVdyYXBwZXIiLCJDbGllbnRCYWRnZSIsIkNsaWVudEF2YXRhciIsIlBsYXRmb3JtRG90IiwiRGFzaGJvYXJkc1NjcmVlbiIsIl9zIiwic2NvcGVkRGFzaGJvYXJkcyIsImRhc2hib2FyZHMiLCJhbGxEYXNoYm9hcmRzIiwic2V0RGFzaGJvYXJkcyIsImFjdGl2ZUNsaWVudCIsInNlbGVjdGVkQ2xpZW50SWQiLCJzZXRTZWxlY3RlZENsaWVudElkIiwic2V0U2hvd0Rhc2hib2FyZE1vZGFsIiwic2V0U2VsZWN0ZWREYXNoYm9hcmQiLCJvblZpZXdEYXNoYm9hcmQiLCJzZXRQYWdlQ29udGV4dCIsInBhZ2UiLCJkYXRhIiwidG90YWxEYXNoYm9hcmRzIiwibGVuZ3RoIiwibWFwIiwiZCIsIm5hbWUiLCJkZXNjcmlwdGlvbiIsInBsYXRmb3JtIiwid2lkZ2V0cyIsInNjaGVkdWxlIiwiQ0xJRU5UUyIsImNsaWVudHMiLCJ0b2dnbGVGYXZvcml0ZSIsImlkIiwiZSIsInN0b3BQcm9wYWdhdGlvbiIsImZhdm9yaXRlIiwiZGFzaGJvYXJkc0J5Q2xpZW50IiwiY2xpZW50IiwiaXRlbXMiLCJmaWx0ZXIiLCJjbGllbnRJZCIsImciLCJzaG93Q2xpZW50R3JvdXBpbmciLCJjb3VudCIsImxpZ2h0QmciLCJsaWdodEJvcmRlciIsInRleHRDb2xvciIsImRvdENvbG9yIiwiaW5kdXN0cnkiLCJwbGF0Zm9ybXMiLCJwIiwiRGFzaGJvYXJkQ2FyZCIsImRhc2hib2FyZCIsIm9uVmlldyIsIm9uVG9nZ2xlRmF2IiwiY29sb3IiLCJyZWNpcGllbnRzIiwidXBkYXRlZCIsIl9jMiIsIl9jIl0sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkRhc2hib2FyZHNTY3JlZW4udHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCBSZWFjdCwgeyB1c2VFZmZlY3QgfSBmcm9tICdyZWFjdCc7XG5pbXBvcnQgeyB1c2VBcHAgfSBmcm9tICcuLi9jb250ZXh0L0FwcENvbnRleHQnO1xuaW1wb3J0IHsgdXNlQWdlbnRTdG9yZSB9IGZyb20gJy4uLy4uL3N0b3Jlcy9hZ2VudFN0b3JlJztcbmltcG9ydCB7IFgsIFBsdXMsIENoZXZyb25SaWdodCwgU3RhciwgTGF5b3V0RGFzaGJvYXJkLCBDbG9jaywgTWFpbCB9IGZyb20gJ2x1Y2lkZS1yZWFjdCc7XG5pbXBvcnQgUGFnZVdyYXBwZXIgZnJvbSAnLi4vY29tcG9uZW50cy9zaGFyZWQvUGFnZVdyYXBwZXInO1xuaW1wb3J0IENsaWVudEJhZGdlIGZyb20gJy4uL2NvbXBvbmVudHMvc2hhcmVkL0NsaWVudEJhZGdlJztcbmltcG9ydCBDbGllbnRBdmF0YXIgZnJvbSAnLi4vY29tcG9uZW50cy9zaGFyZWQvQ2xpZW50QXZhdGFyJztcbmltcG9ydCBQbGF0Zm9ybURvdCBmcm9tICcuLi9jb21wb25lbnRzL3NoYXJlZC9QbGF0Zm9ybURvdCc7XG5cbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIERhc2hib2FyZHNTY3JlZW4oKSB7XG4gIGNvbnN0IHtcbiAgICBzY29wZWREYXNoYm9hcmRzOiBkYXNoYm9hcmRzLFxuICAgIGRhc2hib2FyZHM6IGFsbERhc2hib2FyZHMsXG4gICAgc2V0RGFzaGJvYXJkcyxcbiAgICBhY3RpdmVDbGllbnQsXG4gICAgc2VsZWN0ZWRDbGllbnRJZCxcbiAgICBzZXRTZWxlY3RlZENsaWVudElkLFxuICAgIHNldFNob3dEYXNoYm9hcmRNb2RhbCxcbiAgICBzZXRTZWxlY3RlZERhc2hib2FyZDogb25WaWV3RGFzaGJvYXJkLFxuICB9ID0gdXNlQXBwKCk7XG5cbiAgY29uc3QgeyBzZXRQYWdlQ29udGV4dCB9ID0gdXNlQWdlbnRTdG9yZSgpO1xuXG4gIHVzZUVmZmVjdCgoKSA9PiB7XG4gICAgc2V0UGFnZUNvbnRleHQoe1xuICAgICAgcGFnZTogJ2Rhc2hib2FyZHMnLFxuICAgICAgZGF0YToge1xuICAgICAgICB0b3RhbERhc2hib2FyZHM6IGRhc2hib2FyZHMubGVuZ3RoLFxuICAgICAgICBkYXNoYm9hcmRzOiBkYXNoYm9hcmRzLm1hcCgoZDogYW55KSA9PiAoe1xuICAgICAgICAgIG5hbWU6IGQubmFtZSxcbiAgICAgICAgICBkZXNjcmlwdGlvbjogZC5kZXNjcmlwdGlvbixcbiAgICAgICAgICBwbGF0Zm9ybTogZC5wbGF0Zm9ybSB8fCAnTXVsdGktcGxhdGZvcm0nLFxuICAgICAgICAgIHdpZGdldHM6IGQud2lkZ2V0cyxcbiAgICAgICAgICBzY2hlZHVsZTogZC5zY2hlZHVsZSxcbiAgICAgICAgfSkpXG4gICAgICB9XG4gICAgfSk7XG4gIH0sIFtkYXNoYm9hcmRzLCBzZXRQYWdlQ29udGV4dF0pO1xuXG4gIC8vIEdldCBDTElFTlRTIGZyb20gY29udGV4dCBjb25zdGFudFxuICBjb25zdCB7IENMSUVOVFM6IGNsaWVudHMgfSA9IHVzZUFwcCgpIGFzIGFueTtcblxuICBjb25zdCB0b2dnbGVGYXZvcml0ZSA9IChpZDogbnVtYmVyLCBlOiBSZWFjdC5Nb3VzZUV2ZW50KSA9PiB7XG4gICAgZS5zdG9wUHJvcGFnYXRpb24oKTtcbiAgICBzZXREYXNoYm9hcmRzKGFsbERhc2hib2FyZHMubWFwKChkOiBhbnkpID0+IGQuaWQgPT09IGlkID8geyAuLi5kLCBmYXZvcml0ZTogIWQuZmF2b3JpdGUgfSA6IGQpKTtcbiAgfTtcblxuICAvLyBHcm91cCBkYXNoYm9hcmRzIGJ5IGNsaWVudFxuICBjb25zdCBkYXNoYm9hcmRzQnlDbGllbnQgPSBjbGllbnRzLm1hcCgoY2xpZW50OiBhbnkpID0+ICh7XG4gICAgY2xpZW50LFxuICAgIGl0ZW1zOiBkYXNoYm9hcmRzLmZpbHRlcigoZDogYW55KSA9PiBkLmNsaWVudElkID09PSBjbGllbnQuaWQpLFxuICB9KSkuZmlsdGVyKChnOiBhbnkpID0+IGcuaXRlbXMubGVuZ3RoID4gMCk7XG5cbiAgY29uc3QgdG90YWxEYXNoYm9hcmRzID0gZGFzaGJvYXJkcy5sZW5ndGg7XG4gIGNvbnN0IHNob3dDbGllbnRHcm91cGluZyA9IGRhc2hib2FyZHNCeUNsaWVudC5sZW5ndGggPiAxIHx8ICEhc2VsZWN0ZWRDbGllbnRJZDtcblxuICByZXR1cm4gKFxuICAgIDxQYWdlV3JhcHBlcj5cbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZmxleCBmbGV4LWNvbCBzbTpmbGV4LXJvdyBzbTppdGVtcy1zdGFydCBzbTpqdXN0aWZ5LWJldHdlZW4gZ2FwLTRcIj5cbiAgICAgICAgPGRpdj5cbiAgICAgICAgICA8aDEgY2xhc3NOYW1lPVwidGV4dC0yeGwgZm9udC1ib2xkIHRleHQtc2xhdGUtOTAwXCI+RGFzaGJvYXJkczwvaDE+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ0ZXh0LXNtIHRleHQtc2xhdGUtNTAwIG10LTAuNVwiPlxuICAgICAgICAgICAge3NlbGVjdGVkQ2xpZW50SWQgJiYgYWN0aXZlQ2xpZW50ID8gKFxuICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMVwiPlxuICAgICAgICAgICAgICAgIFNob3dpbmcgPENsaWVudEJhZGdlIGNsaWVudD17YWN0aXZlQ2xpZW50fSAvPiBkYXNoYm9hcmRzXG4gICAgICAgICAgICAgIDwvc3Bhbj5cbiAgICAgICAgICAgICkgOiAoXG4gICAgICAgICAgICAgIGAke3RvdGFsRGFzaGJvYXJkc30gZGFzaGJvYXJkJHt0b3RhbERhc2hib2FyZHMgIT09IDEgPyAncycgOiAnJ30ke2Rhc2hib2FyZHNCeUNsaWVudC5sZW5ndGggPiAxID8gYCBhY3Jvc3MgJHtkYXNoYm9hcmRzQnlDbGllbnQubGVuZ3RofSBjbGllbnRzYCA6ICcnfWBcbiAgICAgICAgICAgICl9XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgIDwvZGl2PlxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0yXCI+XG4gICAgICAgICAge3NlbGVjdGVkQ2xpZW50SWQgJiYgKFxuICAgICAgICAgICAgPGJ1dHRvbiBvbkNsaWNrPXsoKSA9PiBzZXRTZWxlY3RlZENsaWVudElkKG51bGwpfSBjbGFzc05hbWU9XCJoLTkgcHgtMyBib3JkZXIgYm9yZGVyLXNsYXRlLTIwMCBiZy13aGl0ZSByb3VuZGVkLXhsIHRleHQteHMgZm9udC1zZW1pYm9sZCBob3ZlcjpiZy1zbGF0ZS01MCBmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMS41IHNoYWRvdy1zbSBjdXJzb3ItcG9pbnRlclwiPlxuICAgICAgICAgICAgICA8WCBjbGFzc05hbWU9XCJ3LTMgaC0zXCIgLz4gQ2xlYXIgRmlsdGVyXG4gICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICApfVxuICAgICAgICAgIDxidXR0b24gb25DbGljaz17KCkgPT4gc2V0U2hvd0Rhc2hib2FyZE1vZGFsKHRydWUpfSBjbGFzc05hbWU9XCJoLTkgcHgtNCBiZy1zbGF0ZS05MDAgdGV4dC13aGl0ZSByb3VuZGVkLXhsIHRleHQtc20gZm9udC1zZW1pYm9sZCBob3ZlcjpiZy1zbGF0ZS04MDAgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTIgc2hhZG93LXNtIGN1cnNvci1wb2ludGVyXCI+XG4gICAgICAgICAgICA8UGx1cyBjbGFzc05hbWU9XCJ3LTQgaC00XCIgLz4gTmV3IERhc2hib2FyZFxuICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICA8L2Rpdj5cbiAgICAgIDwvZGl2PlxuXG4gICAgICB7LyogQ2xpZW50IEZpbHRlciBQaWxscyAqL31cbiAgICAgIHshc2VsZWN0ZWRDbGllbnRJZCAmJiBjbGllbnRzLmxlbmd0aCA+IDEgJiYgKFxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0yIGZsZXgtd3JhcFwiPlxuICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1zbGF0ZS01MDAgZm9udC1zZW1pYm9sZFwiPkZpbHRlciBieSBjbGllbnQ6PC9zcGFuPlxuICAgICAgICAgIHtjbGllbnRzLm1hcCgoY2xpZW50OiBhbnkpID0+IHtcbiAgICAgICAgICAgIGNvbnN0IGNvdW50ID0gYWxsRGFzaGJvYXJkcy5maWx0ZXIoKGQ6IGFueSkgPT4gZC5jbGllbnRJZCA9PT0gY2xpZW50LmlkKS5sZW5ndGg7XG4gICAgICAgICAgICByZXR1cm4gKFxuICAgICAgICAgICAgICA8YnV0dG9uIGtleT17Y2xpZW50LmlkfSBvbkNsaWNrPXsoKSA9PiBzZXRTZWxlY3RlZENsaWVudElkKGNsaWVudC5pZCl9XG4gICAgICAgICAgICAgICAgY2xhc3NOYW1lPXtgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTEuNSBweC0zIHB5LTEuNSByb3VuZGVkLXhsIGJvcmRlciB0ZXh0LXhzIGZvbnQtc2VtaWJvbGQgdHJhbnNpdGlvbi1hbGwgaG92ZXI6c2hhZG93LXNtIGN1cnNvci1wb2ludGVyICR7Y2xpZW50LmxpZ2h0Qmd9ICR7Y2xpZW50LmxpZ2h0Qm9yZGVyfSAke2NsaWVudC50ZXh0Q29sb3J9YH0+XG4gICAgICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtgdy0yIGgtMiByb3VuZGVkLWZ1bGwgJHtjbGllbnQuZG90Q29sb3J9YH0+PC9zcGFuPlxuICAgICAgICAgICAgICAgIHtjbGllbnQubmFtZX1cbiAgICAgICAgICAgICAgICA8c3BhbiBjbGFzc05hbWU9XCJvcGFjaXR5LTYwXCI+KHtjb3VudH0pPC9zcGFuPlxuICAgICAgICAgICAgICA8L2J1dHRvbj5cbiAgICAgICAgICAgICk7XG4gICAgICAgICAgfSl9XG4gICAgICAgIDwvZGl2PlxuICAgICAgKX1cblxuICAgICAgey8qIEVtcHR5IFN0YXRlICovfVxuICAgICAge2Rhc2hib2FyZHMubGVuZ3RoID09PSAwICYmIChcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciB0ZXh0LWNlbnRlciBwLTggc206cC0xMiBib3JkZXIgYm9yZGVyLXNsYXRlLTEwMCBiZy13aGl0ZSByb3VuZGVkLTN4bCBzaGFkb3ctc20gbWF4LXcteGwgbXgtYXV0byBteS04XCI+XG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJ3LTE2IGgtMTYgcm91bmRlZC0yeGwgYmctaW5kaWdvLTUwIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIHRleHQtWyM2MzY2RjFdIG1iLTUgYW5pbWF0ZS1wdWxzZSBzaGFkb3ctaW5uZXJcIj5cbiAgICAgICAgICAgIDxMYXlvdXREYXNoYm9hcmQgY2xhc3NOYW1lPVwidy04IGgtOFwiIC8+XG4gICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgPGgyIGNsYXNzTmFtZT1cInRleHQtbGcgZm9udC1ib2xkIHRleHQtc2xhdGUtOTAwIG1iLTJcIj5ObyBEYXNoYm9hcmRzIENyZWF0ZWQ8L2gyPlxuICAgICAgICAgIDxwIGNsYXNzTmFtZT1cInRleHQteHMgdGV4dC1zbGF0ZS01MDAgbGVhZGluZy1yZWxheGVkIG1heC13LXNtIG1iLTZcIj5cbiAgICAgICAgICAgIHtzZWxlY3RlZENsaWVudElkICYmIGFjdGl2ZUNsaWVudCBcbiAgICAgICAgICAgICAgPyBgVGhlcmUgYXJlIG5vIGFkIHBlcmZvcm1hbmNlIGRhc2hib2FyZHMgY3JlYXRlZCBmb3IgJHthY3RpdmVDbGllbnQubmFtZX0geWV0LiBDcmVhdGUgb25lIHRvIHRyYWNrIGNvbnZlcnNpb25zLCBzcGVuZCwgYW5kIENQQyB0cmVuZHMuYFxuICAgICAgICAgICAgICA6ICdUaGVyZSBhcmUgbm8gZGFzaGJvYXJkcyBjb25maWd1cmVkIGluIHRoaXMgd29ya3NwYWNlLiBDcmVhdGUgeW91ciBmaXJzdCBkYXNoYm9hcmQgdG8gZ2V0IHN0YXJ0ZWQuJ31cbiAgICAgICAgICA8L3A+XG4gICAgICAgICAgPGJ1dHRvblxuICAgICAgICAgICAgb25DbGljaz17KCkgPT4gc2V0U2hvd0Rhc2hib2FyZE1vZGFsKHRydWUpfVxuICAgICAgICAgICAgY2xhc3NOYW1lPVwicHgtNSBweS0yLjUgYmctZ3JhZGllbnQtdG8tciBmcm9tLVsjNjM2NkYxXSB0by1bIzhCNUNGNl0gdGV4dC13aGl0ZSByb3VuZGVkLXhsIHRleHQteHMgZm9udC1ib2xkIGhvdmVyOnNjYWxlLVsxLjAzXSBhY3RpdmU6c2NhbGUtWzAuOThdIHRyYW5zaXRpb24tdHJhbnNmb3JtIHNoYWRvdy1tZCBjdXJzb3ItcG9pbnRlciBib3JkZXItMFwiXG4gICAgICAgICAgPlxuICAgICAgICAgICAgQ3JlYXRlIEZpcnN0IERhc2hib2FyZFxuICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICA8L2Rpdj5cbiAgICAgICl9XG5cbiAgICAgIHsvKiBEYXNoYm9hcmRzIGdyb3VwZWQgYnkgY2xpZW50ICovfVxuICAgICAge2Rhc2hib2FyZHNCeUNsaWVudC5tYXAoKHsgY2xpZW50LCBpdGVtcyB9OiBhbnkpID0+IChcbiAgICAgICAgPGRpdiBrZXk9e2NsaWVudC5pZH0gY2xhc3NOYW1lPVwic3BhY2UteS0zXCI+XG4gICAgICAgICAgey8qIENsaWVudCBTZWN0aW9uIEhlYWRlciAqL31cbiAgICAgICAgICB7c2hvd0NsaWVudEdyb3VwaW5nICYmIDxkaXYgY2xhc3NOYW1lPXtgZmxleCBpdGVtcy1jZW50ZXIganVzdGlmeS1iZXR3ZWVuIHAtMy41IHJvdW5kZWQteGwgYm9yZGVyIG1iLTMgJHtjbGllbnQubGlnaHRCZ30gJHtjbGllbnQubGlnaHRCb3JkZXJ9YH0+XG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0zXCI+XG4gICAgICAgICAgICAgIDxDbGllbnRBdmF0YXIgY2xpZW50PXtjbGllbnR9IHNpemU9XCJzbVwiIC8+XG4gICAgICAgICAgICAgIDxkaXY+XG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPXtgdGV4dC1zbSBmb250LWJvbGQgJHtjbGllbnQudGV4dENvbG9yfWB9PntjbGllbnQubmFtZX08L3A+XG4gICAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1bMTFweF0gdGV4dC1zbGF0ZS01MDBcIj57Y2xpZW50LmluZHVzdHJ5fSDCtyB7aXRlbXMubGVuZ3RofSBkYXNoYm9hcmR7aXRlbXMubGVuZ3RoICE9PSAxID8gJ3MnIDogJyd9PC9wPlxuICAgICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICAgIDwvZGl2PlxuICAgICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMlwiPlxuICAgICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0xLjVcIj5cbiAgICAgICAgICAgICAgICB7Y2xpZW50LnBsYXRmb3Jtcy5tYXAoKHA6IHN0cmluZykgPT4gPFBsYXRmb3JtRG90IGtleT17cH0gcGxhdGZvcm09e3B9IC8+KX1cbiAgICAgICAgICAgICAgPC9kaXY+XG4gICAgICAgICAgICAgIDxidXR0b25cbiAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiBzZXRTZWxlY3RlZENsaWVudElkKHNlbGVjdGVkQ2xpZW50SWQgPT09IGNsaWVudC5pZCA/IG51bGwgOiBjbGllbnQuaWQpfVxuICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cInRleHQtWzExcHhdIGZvbnQtc2VtaWJvbGQgdGV4dC1zbGF0ZS01MDAgaG92ZXI6dGV4dC1zbGF0ZS05MDAgdHJhbnNpdGlvbi1jb2xvcnMgZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTEgY3Vyc29yLXBvaW50ZXJcIlxuICAgICAgICAgICAgICA+XG4gICAgICAgICAgICAgICAge3NlbGVjdGVkQ2xpZW50SWQgPT09IGNsaWVudC5pZCA/ICdTaG93IGFsbCcgOiAnRmlsdGVyJ30gPENoZXZyb25SaWdodCBjbGFzc05hbWU9XCJ3LTMgaC0zXCIgLz5cbiAgICAgICAgICAgICAgPC9idXR0b24+XG4gICAgICAgICAgICA8L2Rpdj5cbiAgICAgICAgICA8L2Rpdj59XG5cbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImdyaWQgZ3JpZC1jb2xzLTEgc206Z3JpZC1jb2xzLTIgbGc6Z3JpZC1jb2xzLTMgZ2FwLTMgbWItMlwiPlxuICAgICAgICAgICAge2l0ZW1zLm1hcCgoZDogYW55KSA9PiAoXG4gICAgICAgICAgICAgIDxEYXNoYm9hcmRDYXJkIGtleT17ZC5pZH0gZGFzaGJvYXJkPXtkfSBjbGllbnQ9e2NsaWVudH0gb25WaWV3PXsoKSA9PiBvblZpZXdEYXNoYm9hcmQoZC5pZCl9IG9uVG9nZ2xlRmF2PXt0b2dnbGVGYXZvcml0ZX0gLz5cbiAgICAgICAgICAgICkpfVxuICAgICAgICAgICAgey8qIEFkZCBkYXNoYm9hcmQgZm9yIHRoaXMgY2xpZW50ICovfVxuICAgICAgICAgICAgPGJ1dHRvbiBvbkNsaWNrPXsoKSA9PiB7IHNldFNlbGVjdGVkQ2xpZW50SWQoY2xpZW50LmlkKTsgc2V0U2hvd0Rhc2hib2FyZE1vZGFsKHRydWUpOyB9fVxuICAgICAgICAgICAgICBjbGFzc05hbWU9XCJmbGV4IGZsZXgtY29sIGl0ZW1zLWNlbnRlciBqdXN0aWZ5LWNlbnRlciBnYXAtMiBib3JkZXItMiBib3JkZXItZGFzaGVkIGJvcmRlci1zbGF0ZS0yMDAgcm91bmRlZC0yeGwgcC02IGhvdmVyOmJvcmRlci1zbGF0ZS0zMDAgaG92ZXI6Ymctc2xhdGUtNTAgdHJhbnNpdGlvbi1hbGwgdGV4dC1zbGF0ZS00MDAgaG92ZXI6dGV4dC1zbGF0ZS02MDAgbWluLWgtWzEyMHB4XSBjdXJzb3ItcG9pbnRlclwiPlxuICAgICAgICAgICAgICA8UGx1cyBjbGFzc05hbWU9XCJ3LTUgaC01XCIgLz5cbiAgICAgICAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC14cyBmb250LXNlbWlib2xkXCI+QWRkIERhc2hib2FyZDwvcD5cbiAgICAgICAgICAgIDwvYnV0dG9uPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICA8L2Rpdj5cbiAgICAgICkpfVxuICAgIDwvUGFnZVdyYXBwZXI+XG4gICk7XG59XG5cbmZ1bmN0aW9uIERhc2hib2FyZENhcmQoeyBkYXNoYm9hcmQ6IGQsIGNsaWVudCwgb25WaWV3LCBvblRvZ2dsZUZhdiB9OiBhbnkpIHtcbiAgcmV0dXJuIChcbiAgICA8ZGl2IG9uQ2xpY2s9e29uVmlld30gY2xhc3NOYW1lPVwiYmctd2hpdGUgcm91bmRlZC0yeGwgYm9yZGVyIGJvcmRlci1zbGF0ZS0yMDAgb3ZlcmZsb3ctaGlkZGVuIGhvdmVyOmJvcmRlci1zbGF0ZS0zMDAgaG92ZXI6c2hhZG93LW1kIHRyYW5zaXRpb24tYWxsIGN1cnNvci1wb2ludGVyIGdyb3VwXCI+XG4gICAgICA8ZGl2IGNsYXNzTmFtZT17YGgtMjQgYmctZ3JhZGllbnQtdG8tYnIgJHtkLmNvbG9yfSBmbGV4IGl0ZW1zLWVuZCBqdXN0aWZ5LWJldHdlZW4gcC0zIHJlbGF0aXZlYH0+XG4gICAgICAgIDxMYXlvdXREYXNoYm9hcmQgY2xhc3NOYW1lPVwiYWJzb2x1dGUgdG9wLTMgbGVmdC0zIHctOCBoLTggdGV4dC1zbGF0ZS0zMDAvNjBcIiAvPlxuICAgICAgICB7ZC5zY2hlZHVsZSAmJiAoXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMSBweC0yIHB5LTEgYmctd2hpdGUvODAgdGV4dC1zbGF0ZS03MDAgcm91bmRlZC1sZyB0ZXh0LVs5cHhdIGZvbnQtYm9sZFwiPlxuICAgICAgICAgICAgPENsb2NrIGNsYXNzTmFtZT1cInctMiBoLTJcIiAvPntkLnNjaGVkdWxlfVxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICApfVxuICAgICAgICA8YnV0dG9uIG9uQ2xpY2s9e2UgPT4gb25Ub2dnbGVGYXYoZC5pZCwgZSl9IGNsYXNzTmFtZT1cIm1sLWF1dG8gdy02IGgtNiBiZy13aGl0ZS84MCByb3VuZGVkLW1kIGZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktY2VudGVyIGhvdmVyOmJnLXdoaXRlIHRyYW5zaXRpb24tY29sb3JzIGN1cnNvci1wb2ludGVyXCI+XG4gICAgICAgICAgPFN0YXIgY2xhc3NOYW1lPXtgdy0zIGgtMyAke2QuZmF2b3JpdGUgPyAndGV4dC1hbWJlci01MDAgZmlsbC1hbWJlci01MDAnIDogJ3RleHQtc2xhdGUtNDAwJ31gfSAvPlxuICAgICAgICA8L2J1dHRvbj5cbiAgICAgIDwvZGl2PlxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJwLTMuNVwiPlxuICAgICAgICB7Y2xpZW50ICYmIChcbiAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0xLjUgbWItMlwiPlxuICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtgdy0yIGgtMiByb3VuZGVkLWZ1bGwgJHtjbGllbnQuZG90Q29sb3J9YH0+PC9zcGFuPlxuICAgICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPXtgdGV4dC1bMTBweF0gZm9udC1ib2xkICR7Y2xpZW50LnRleHRDb2xvcn1gfT57Y2xpZW50Lm5hbWV9PC9zcGFuPlxuICAgICAgICAgIDwvZGl2PlxuICAgICAgICApfVxuICAgICAgICA8cCBjbGFzc05hbWU9XCJ0ZXh0LXhzIGZvbnQtYm9sZCB0ZXh0LXNsYXRlLTkwMCBtYi0wLjUgZ3JvdXAtaG92ZXI6dGV4dC1zbGF0ZS03MDAgdHJhbnNpdGlvbi1jb2xvcnNcIj57ZC5uYW1lfTwvcD5cbiAgICAgICAgPHAgY2xhc3NOYW1lPVwidGV4dC1bMTFweF0gdGV4dC1zbGF0ZS00MDAgbWItMi41XCI+e2QuZGVzY3JpcHRpb259PC9wPlxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGp1c3RpZnktYmV0d2VlbiB0ZXh0LVsxMHB4XSB0ZXh0LXNsYXRlLTQwMFwiPlxuICAgICAgICAgIDxzcGFuIGNsYXNzTmFtZT1cImZsZXggaXRlbXMtY2VudGVyIGdhcC0xXCI+PExheW91dERhc2hib2FyZCBjbGFzc05hbWU9XCJ3LTIuNSBoLTIuNVwiIC8+e2Qud2lkZ2V0c30gd2lkZ2V0czwvc3Bhbj5cbiAgICAgICAgICB7ZC5yZWNpcGllbnRzID4gMCAmJiA8c3BhbiBjbGFzc05hbWU9XCJmbGV4IGl0ZW1zLWNlbnRlciBnYXAtMVwiPjxNYWlsIGNsYXNzTmFtZT1cInctMi41IGgtMi41XCIgLz57ZC5yZWNpcGllbnRzfTwvc3Bhbj59XG4gICAgICAgICAgPHNwYW4gY2xhc3NOYW1lPVwiZmxleCBpdGVtcy1jZW50ZXIgZ2FwLTFcIj48Q2xvY2sgY2xhc3NOYW1lPVwidy0yLjUgaC0yLjVcIiAvPntkLnVwZGF0ZWR9PC9zcGFuPlxuICAgICAgICA8L2Rpdj5cbiAgICAgIDwvZGl2PlxuICAgIDwvZGl2PlxuICApO1xufVxuIl0sImZpbGUiOiJDOi9Vc2Vycy9WZW5wZXAgb2ZmaWNlL0Rvd25sb2Fkcy9NaXAtbWFpbiAoMikvTWlwLW1haW4vc3JjL2FwcC9zY3JlZW5zL0Rhc2hib2FyZHNTY3JlZW4udHN4In0=

@@ -1,0 +1,5 @@
+2026/06/01-13:59:30.752 5668 Creating DB C:\Users\Venpep office\Downloads\Mip-main (2)\MIP-main\scratch\edge-dashboard-auth-errors\Default\EdgeCoupons/coupons_data.db since it was missing.
+2026/06/01-13:59:30.799 5668 Reusing MANIFEST C:\Users\Venpep office\Downloads\Mip-main (2)\MIP-main\scratch\edge-dashboard-auth-errors\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/06/01-13:59:33.501 2808 Level-0 table #5: started
+2026/06/01-13:59:33.528 2808 Level-0 table #5: 682643 bytes OK
+2026/06/01-13:59:33.538 2808 Delete type=0 #3

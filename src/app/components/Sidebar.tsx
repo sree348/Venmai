@@ -1,6 +1,6 @@
 import { useApp, CLIENTS } from '../context/AppContext';
 import { 
-  Building2, Briefcase, Sparkles, LayoutDashboard, Target, Link2, Database, 
+  Building2, Briefcase, Sparkles, LayoutDashboard, BarChart3, Target, Link2, Database,
   FileText, Users, Settings, Zap, X, ChevronDown, Check, Cpu
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -209,28 +209,5 @@ function Section({ label, children }: { label: string; children: React.ReactNode
       </div>
       <div className="flex flex-col gap-0.5">{children}</div>
     </div>
-  );
-}
-
-// Inline duplicate to resolve build imports if needed
-function BarChart3(props: any) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
   );
 }

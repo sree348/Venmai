@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useAgentStore } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
 import { Download, IndianRupee, TrendingUp, CheckCircle, Activity } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
@@ -39,6 +41,18 @@ export default function AnalyticsScreen() {
   const totalSpend = campaigns.reduce((s: number, c: any) => s + c.spend, 0);
   const totalConv = campaigns.reduce((s: number, c: any) => s + c.conv, 0);
   const avgRoas = campaigns.reduce((s: number, c: any) => s + c.roas, 0) / (campaigns.length || 1);
+
+  const { setPageContext } = useAgentStore();
+  const platformBreakdown = platformBarData;
+  const spendTrend = performanceTrend;
+  const conversionShare = conversionPieData;
+
+  useEffect(() => {
+    setPageContext({
+      page: 'analytics',
+      data: { platformBreakdown, spendTrend, conversionShare }
+    });
+  }, [platformBreakdown, spendTrend, conversionShare, setPageContext]);
 
   return (
     <PageWrapper>

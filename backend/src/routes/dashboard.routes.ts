@@ -16,12 +16,14 @@ function baseWhere(req: AuthenticatedRequest, defaultActive = true) {
   const { from, to } = dateRange(req);
   const status = req.query.status ? String(req.query.status).toLowerCase() : defaultActive ? 'active' : undefined;
   const clientId = req.query.clientId ? String(req.query.clientId) : undefined;
+  const platform = req.query.platform ? String(req.query.platform).toLowerCase() : undefined;
 
   return Prisma.sql`
     tenant_id = ${req.auth!.tenantId}
     AND date >= ${from}
     AND date <= ${to}
     ${clientId ? Prisma.sql`AND client_id = ${clientId}` : Prisma.empty}
+    ${platform ? Prisma.sql`AND LOWER(platform) = ${platform}` : Prisma.empty}
     ${status ? Prisma.sql`AND LOWER(status) = ${status}` : Prisma.empty}
   `;
 }
@@ -157,6 +159,7 @@ dashboardRouter.get('/dashboard/last-synced', requireJwtAuth, async (req: Authen
       FROM campaign_data
       WHERE tenant_id = ${req.auth!.tenantId}
       ${req.query.clientId ? Prisma.sql`AND client_id = ${String(req.query.clientId)}` : Prisma.empty}
+      ${req.query.platform ? Prisma.sql`AND LOWER(platform) = ${String(req.query.platform).toLowerCase()}` : Prisma.empty}
     `;
 
     return res.json(rows[0] || { lastSyncedAt: null, campaignCount: 0, dataFrom: null, dataTo: null });
@@ -169,6 +172,7 @@ dashboardRouter.get('/dashboard/monthly-trend', requireJwtAuth, async (req: Auth
   try {
     const tenantId = req.auth!.tenantId;
     const clientId = req.query.clientId ? String(req.query.clientId) : undefined;
+    const platform = req.query.platform ? String(req.query.platform).toLowerCase() : undefined;
 
     // Find the earliest date available for this tenant (ignore request date range)
     const earliestRows = await prisma.$queryRaw<Array<{ earliest: Date | null }>>`
@@ -176,6 +180,7 @@ dashboardRouter.get('/dashboard/monthly-trend', requireJwtAuth, async (req: Auth
       FROM campaign_data
       WHERE tenant_id = ${tenantId}
       ${clientId ? Prisma.sql`AND client_id = ${clientId}` : Prisma.empty}
+      ${platform ? Prisma.sql`AND LOWER(platform) = ${platform}` : Prisma.empty}
     `;
     const earliest = earliestRows[0]?.earliest ?? new Date('2024-01-01');
     const now = new Date();
@@ -204,6 +209,7 @@ dashboardRouter.get('/dashboard/monthly-trend', requireJwtAuth, async (req: Auth
         AND date >= ${earliest}
         AND date <= ${now}
         ${clientId ? Prisma.sql`AND client_id = ${clientId}` : Prisma.empty}
+        ${platform ? Prisma.sql`AND LOWER(platform) = ${platform}` : Prisma.empty}
       GROUP BY DATE_TRUNC('month', date)
       ORDER BY DATE_TRUNC('month', date) ASC
     `;

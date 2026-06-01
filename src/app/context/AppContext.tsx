@@ -11,7 +11,7 @@ export const CLIENTS = mockClients;
 const INITIAL_CAMPAIGNS = mockCampaigns;
 
 const INITIAL_DASHBOARDS = [
-  { id: 1, clientId: 'cai_mahindra', name: 'CAI Mahindra — Meta Ads Performance Dashboard', description: 'Real-time performance marketer dashboard for Meta (Facebook & Instagram) campaigns', platform: 'Meta Ads', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-blue-50 to-indigo-100/60' },
+  { id: 1, clientId: 'cai_mahindra', name: 'CAI Mahindra — Real-Time Performance', description: 'Complete 14-tile dashboard for the modern performance marketer · Sync status: Real-time dynamic data ready', platform: 'Meta Ads', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-blue-50 to-indigo-100/60' },
   { id: 2, clientId: 'cai_mahindra', name: 'CAI Mahindra — Google Ads Performance Dashboard', description: 'Real-time search and Performance Max tracking for Google Ads campaigns', platform: 'Google Ads', widgets: 14, updated: 'Just now', schedule: 'Daily 9am', recipients: 4, favorite: true, color: 'from-emerald-50 to-teal-100/60' },
   { id: 3, clientId: 'cai_mahindra', name: 'CAI Mahindra — Budget & Efficiency Overview', description: 'Multi-channel spend tracking, CPA benchmarks and CPA scaling indices', widgets: 10, updated: '2 hours ago', schedule: 'Mon-Fri 8am', recipients: 2, favorite: false, color: 'from-slate-50 to-slate-100' }
 ];
@@ -85,12 +85,29 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState(CLIENTS);
-  const [activeView, setActiveView] = useState('agency');
+  const [activeView, setActiveView] = useState('dashboards');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS);
   const [dashboards, setDashboards] = useState(INITIAL_DASHBOARDS);
   const [selectedCampaign, setSelectedCampaign] = useState<number | null>(null);
-  const [selectedDashboard, setSelectedDashboard] = useState<number | null>(null);
+  const [selectedDashboard, setSelectedDashboardState] = useState<number | null>(() => {
+    try {
+      const saved = window.localStorage.getItem('marketiq.selected_dashboard');
+      const dashboardId = saved ? Number(saved) : 1;
+      return [1, 2, 3].includes(dashboardId) ? dashboardId : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const setSelectedDashboard = (id: number | null) => {
+    setSelectedDashboardState(id);
+    try {
+      if (id === null) window.localStorage.removeItem('marketiq.selected_dashboard');
+      else window.localStorage.setItem('marketiq.selected_dashboard', String(id));
+    } catch {
+      // Local storage is optional; dashboard navigation still works without it.
+    }
+  };
   const [savedConfigs, setSavedConfigs] = useState<any[]>([
     { id: 1, name: 'CAI Mahindra — April 2026 Review', monthYear: '2026-04', filters: { platforms: ['Meta'], products: [], formats: [], audiences: [], targets: [] } }
   ]);
