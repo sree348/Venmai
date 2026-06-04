@@ -2,7 +2,14 @@ import { Router } from 'express';
 import { prisma } from '../services/prisma.service.js';
 import { runBrainAnalysis } from '../jobs/brain.job.js';
 import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
-import Groq from 'groq-sdk';
+import { ChatGroq } from '@langchain/groq';
+import { SystemMessage } from '@langchain/core/messages';
+import {
+  exportAgentDataSnapshot,
+  pruneCampaignDataOutsideBrainWindow,
+  AI_BRAIN_DATE_WINDOW,
+  AI_BRAIN_FRAMEWORK,
+} from '../services/ai-brain.service.js';
 
 export const brainRouter = Router();
 
@@ -47,6 +54,27 @@ brainRouter.post('/brain/sync', requireJwtAuth, async (req: AuthenticatedRequest
     await runBrainAnalysis(clientId);
     
     return res.json({ success: true, message: 'AI Brain sync completed successfully.' });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// POST /api/v1/brain/export-agent-data
+brainRouter.post('/brain/export-agent-data', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const tenantId = req.body.tenantId || req.auth!.tenantId || 'agency';
+    const clientId = req.body.clientId || 'agency';
+
+    const snapshot = await exportAgentDataSnapshot(tenantId, clientId);
+    const prunedRows = await pruneCampaignDataOutsideBrainWindow(tenantId, clientId);
+
+    return res.json({
+      success: true,
+      dateWindow: AI_BRAIN_DATE_WINDOW,
+      framework: AI_BRAIN_FRAMEWORK,
+      prunedRows,
+      snapshot,
+    });
   } catch (error) {
     return next(error);
   }
@@ -132,24 +160,26 @@ brainRouter.post('/agency/ai-summary', requireJwtAuth, async (req: Authenticated
       zeroConversionCampaigns,
     };
 
-    // 3. Query Groq
+    // 3. Query Groq via LangChain
     const apiKey = process.env.GROQ_API_KEY;
     if (apiKey) {
       try {
-        const groq = new Groq({ apiKey });
-        const completion = await groq.chat.completions.create({
+        const model = new ChatGroq({
+          apiKey,
           model: 'llama-3.3-70b-versatile',
           temperature: 0.2,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: `You are a senior marketing strategist. Write an executive summary for an agency overview. Data: ${JSON.stringify(aggregatedMetrics)}. Return JSON with these fields: { headline, overview, topWin, biggestRisk, recommendation, budgetHealth, keyMetrics: [{ label, value, status }] } Be specific. Use real numbers from the data. Max 3 sentences per field. Value status must be 'success' (positive/healthy), 'warning' (pacing alert), or 'danger' (budget waste or fatigue).`,
-            },
-          ],
-        });
+          modelKwargs: {
+            response_format: { type: 'json_object' },
+          },
+        } as any);
 
-        const responseText = completion.choices[0]?.message?.content;
+        const systemPrompt = `You are a senior marketing strategist. Write an executive summary for an agency overview. Data: ${JSON.stringify(aggregatedMetrics)}. Return JSON with these fields: { headline, overview, topWin, biggestRisk, recommendation, budgetHealth, keyMetrics: [{ label, value, status }] } Be specific. Use real numbers from the data. Max 3 sentences per field. Value status must be 'success' (positive/healthy), 'warning' (pacing alert), or 'danger' (budget waste or fatigue).`;
+
+        const response = await model.invoke([
+          new SystemMessage(systemPrompt),
+        ]);
+
+        const responseText = String(response.content);
         if (responseText) {
           const parsed = JSON.parse(responseText.trim());
           return res.json(parsed);

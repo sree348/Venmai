@@ -1,4 +1,11 @@
 import 'dotenv/config';
+
+// Clear proxy environment variables to bypass misconfigured local developer proxies (e.g., loopbacks to port 9)
+delete process.env.http_proxy;
+delete process.env.HTTP_PROXY;
+delete process.env.https_proxy;
+delete process.env.HTTPS_PROXY;
+
 import cors from 'cors';
 import express from 'express';
 import { createServer } from 'node:http';

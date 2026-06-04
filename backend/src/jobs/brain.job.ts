@@ -1,7 +1,14 @@
-import Groq from 'groq-sdk';
+import { ChatGroq } from '@langchain/groq';
+import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { prisma } from '../services/prisma.service.js';
+import {
+  AI_BRAIN_DATE_WINDOW,
+  exportAgentDataSnapshot,
+  MARBLISM_AI_TONE,
+  pruneCampaignDataOutsideBrainWindow,
+} from '../services/ai-brain.service.js';
 
-const SYSTEM_PROMPT = `You are a senior performance marketing strategist managing Indian ad campaigns.
+const SYSTEM_PROMPT = `You are a senior performance marketing strategist managing Indian ad campaigns. ${MARBLISM_AI_TONE}
 You have live campaign data below. Identify real problems and real opportunities.
 
 Return a JSON array of 5 objects. Each must have:
@@ -45,15 +52,20 @@ function cleanJsonString(content: string): string {
 export async function runBrainAnalysis(clientId: string, tenantId: string = 'agency') {
   console.log(`Running AI Brain Analysis for clientId: ${clientId}, tenantId: ${tenantId}...`);
 
-  // 1. Fetch aggregated campaign data for the last 30 days
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const fromDate = new Date(`${AI_BRAIN_DATE_WINDOW.from}T00:00:00.000Z`);
+  const toDate = new Date(`${AI_BRAIN_DATE_WINDOW.to}T23:59:59.999Z`);
+  const snapshot = await exportAgentDataSnapshot(tenantId, clientId);
+  const prunedRows = await pruneCampaignDataOutsideBrainWindow(tenantId, clientId);
+  console.log('AI Brain agent data snapshot saved:', snapshot);
+  console.log(`AI Brain retention pruned ${prunedRows} rows outside ${AI_BRAIN_DATE_WINDOW.from} to ${AI_BRAIN_DATE_WINDOW.to}.`);
+
+  // 1. Fetch aggregated campaign data for the configured AI brain window
   const rawCampaigns = await prisma.campaignData.groupBy({
     by: ['campaignId', 'campaignName', 'platform', 'status'],
     where: {
       tenantId,
       ...(clientId && clientId !== 'agency' ? { clientId } : {}),
-      date: { gte: thirtyDaysAgo },
+      date: { gte: fromDate, lte: toDate },
     },
     _sum: {
       spend: true,
@@ -105,20 +117,22 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
     return;
   }
 
-  const groq = new Groq({ apiKey });
-
   try {
-    const completion = await groq.chat.completions.create({
+    const model = new ChatGroq({
+      apiKey,
       model: 'llama-3.3-70b-versatile',
       temperature: 0.1,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Here is the live campaign data:\n${JSON.stringify(campaignsList, null, 2)}` },
-      ],
-    });
+      modelKwargs: {
+        response_format: { type: 'json_object' },
+      },
+    } as any);
 
-    const responseText = completion.choices[0]?.message?.content;
+    const response = await model.invoke([
+      new SystemMessage(SYSTEM_PROMPT),
+      new HumanMessage(`Here is the live campaign data:\n${JSON.stringify(campaignsList, null, 2)}`),
+    ]);
+
+    const responseText = String(response.content);
     if (!responseText) {
       throw new Error('Groq returned an empty response.');
     }

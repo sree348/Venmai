@@ -1,0 +1,4 @@
+
+> mip-backend@0.0.1 dev
+> tsx watch src/server.ts
+

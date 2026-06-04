@@ -1,0 +1,13 @@
+[31mfailed to load config from C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\vite.config.ts[39m
+[31merror when starting dev server:
+Error: spawn EPERM
+    at ChildProcess.spawn (node:internal/child_process:441:11)
+    at Object.spawn (node:child_process:796:9)
+    at ensureServiceIsRunning (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\node_modules\esbuild\lib\main.js:1978:29)
+    at build (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\node_modules\esbuild\lib\main.js:1876:26)
+    at bundleConfigFile (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:49274:24)
+    at async bundleAndLoadConfigFile (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:49258:19)
+    at async loadConfigFromFile (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:49222:44)
+    at async resolveConfig (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:48718:24)
+    at async _createServer (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/chunks/dep-DBxKXgDP.js:38329:18)
+    at async CAC.<anonymous> (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/node_modules/vite/dist/node/cli.js:753:20)[39m

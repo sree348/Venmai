@@ -441,6 +441,67 @@ export const mockSpendTrend30Days = Array.from({ length: 30 }, (_, index) => {
 // ─── AI Chat helper ───────────────────────────────────────────────────────────
 export function buildMockChatResponse(prompt: string, context?: { campaigns?: any[]; clients?: any[]; integrations?: any[]; insight?: string }) {
   const normalizedPrompt = prompt.toLowerCase();
+  const genericConversationPatterns = [
+    /\bhi\b/i,
+    /\bhello\b/i,
+    /\bhey\b/i,
+    /\bgood\s+(morning|afternoon|evening)\b/i,
+    /\bthanks?\b/i,
+    /\bthank\s+you\b/i,
+    /\bwho\s+are\s+you\b/i,
+    /\bwhat\s+can\s+you\s+do\b/i,
+  ];
+  const metaAnalyticsTerms = [
+    'ad',
+    'ads',
+    'campaign',
+    'campaigns',
+    'meta',
+    'facebook',
+    'instagram',
+    'spend',
+    'budget',
+    'cpc',
+    'cpl',
+    'ctr',
+    'cpm',
+    'roas',
+    'lead',
+    'leads',
+    'conversion',
+    'conversions',
+    'click',
+    'clicks',
+    'impression',
+    'impressions',
+    'frequency',
+    'fatigue',
+    'pause',
+    'scale',
+    'performance',
+    'waste',
+    'report',
+  ];
+  const hasAnalyticsTerm = metaAnalyticsTerms.some(term => normalizedPrompt.includes(term));
+  if (!hasAnalyticsTerm && genericConversationPatterns.some(pattern => pattern.test(prompt))) {
+    if (/\bthanks?\b|\bthank\s+you\b/.test(normalizedPrompt)) {
+      return {
+        widget: null,
+        insight: 'You are welcome. I am here when you want a clean read on CAI Media campaign movement, waste, fatigue, or scaling opportunities.',
+      };
+    }
+    if (/\bwho\s+are\s+you\b|\bwhat\s+can\s+you\s+do\b/.test(normalizedPrompt)) {
+      return {
+        widget: null,
+        insight: 'I am your CAI Media Meta Ads intelligence agent. Ask me about campaign spend, CPL, CTR, CPM, ROAS, frequency, budget waste, or what to pause and scale.',
+      };
+    }
+    return {
+      widget: null,
+      insight: 'Hi. I am your CAI Media marketing agent. Ask me anything about your Meta Ads campaigns, or tell me which campaign you want me to inspect.',
+    };
+  }
+
   const campaigns = context?.campaigns || mockCampaigns;
   const worstCampaigns = [...campaigns]
     .sort((a, b) => (a.roas ?? -1) - (b.roas ?? -1))

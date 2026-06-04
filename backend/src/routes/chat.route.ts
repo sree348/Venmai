@@ -1,16 +1,20 @@
 import { Router } from 'express';
-import { executeReadOnlySql } from '../services/db.service.js';
-import { queryWithGroq, generateInsightFromData } from '../services/groq.service.js';
 import { prisma } from '../services/prisma.service.js';
-import { prepareAiSql } from '../services/sql-safety.service.js';
 import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import {
+  buildKnowledgeBaseReply,
+  classifyAiIntent,
+  exportAgentDataSnapshot,
+  pruneCampaignDataOutsideBrainWindow,
+} from '../services/ai-brain.service.js';
+import { runAgentWorkflow } from '../services/agent.service.js';
 
 export const chatRouter = Router();
 
 // POST /api/v1/chat
 chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const { prompt, tenantId = req.auth!.tenantId, history = [], pageContext } = req.body || {};
+    const { prompt, tenantId = req.auth!.tenantId, clientId, history = [], pageContext } = req.body || {};
 
     if (!prompt || !tenantId) {
       return res.status(400).json({ error: 'prompt and tenantId are required.' });
@@ -20,66 +24,93 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
       return res.status(403).json({ error: 'Token is not allowed to query this tenant or client scope.' });
     }
 
-    // Call Groq to get the SQL and initial structured response
-    const spec = await queryWithGroq(prompt, tenantId, history, pageContext);
-    
-    // Execute the returned SQL against the DB
-    let rows: any[] = [];
-    if (spec.sql) {
-      const sqlToRun = prepareAiSql(spec.sql, tenantId);
-      console.log('Validated AI SQL to run against campaign_data:', sqlToRun);
+    const classification = await classifyAiIntent(prompt);
+    const intent = classification.intent;
+
+    if (intent === 'knowledge_base') {
+      const insight = await buildKnowledgeBaseReply(prompt);
 
       try {
-        rows = await executeReadOnlySql(sqlToRun);
-      } catch (dbErr: any) {
-        console.error('SQL execution failed:', dbErr);
-        throw new Error(`Failed to execute AI-generated SQL: ${dbErr.message}`);
+        await prisma.conversationHistory.create({
+          data: {
+            tenantId,
+            role: 'user',
+            content: prompt,
+          },
+        });
+
+        await prisma.conversationHistory.create({
+          data: {
+            tenantId,
+            role: 'assistant',
+            content: JSON.stringify({ widget: null, insight }),
+          },
+        });
+      } catch (historyErr) {
+        console.error('Failed to store conversation history:', historyErr);
       }
+
+      return res.json({
+        widget: null,
+        insight,
+        intent,
+        dataSnapshot: null,
+        prunedRows: 0,
+      });
     }
 
-    // Call generateInsightFromData to build a true, data-grounded natural language explanation!
-    let liveInsight = spec.insight;
+    let dataSnapshot = null;
+    let prunedRows = 0;
     try {
-      liveInsight = await generateInsightFromData(prompt, spec.sql, rows, tenantId, pageContext);
-    } catch (insightErr) {
-      console.error('Failed to generate live insight:', insightErr);
+      dataSnapshot = await exportAgentDataSnapshot(tenantId, clientId || tenantId);
+      prunedRows = await pruneCampaignDataOutsideBrainWindow(tenantId, clientId || tenantId);
+    } catch (snapshotErr) {
+      console.error('AI Brain data snapshot failed; continuing with live Meta query path:', snapshotErr);
     }
 
-    // Update the spec insight with the live computed insight
-    spec.insight = liveInsight;
-
-    const widget = {
-      ...spec,
-      data: rows,
-    };
+    // Call the Agentic Workflow ReAct loop
+    const { widget, insight: liveInsight } = await runAgentWorkflow(
+      prompt,
+      tenantId,
+      clientId || tenantId,
+      history,
+      pageContext
+    );
 
     // Store each turn in ConversationHistory table
     // 1. Store user message
-    await prisma.conversationHistory.create({
-      data: {
-        tenantId,
-        role: 'user',
-        content: prompt,
-      },
-    });
+    try {
+      await prisma.conversationHistory.create({
+        data: {
+          tenantId,
+          role: 'user',
+          content: prompt,
+        },
+      });
 
-    // 2. Store assistant message
-    const assistantPayload = {
-      widget,
-      insight: liveInsight,
-    };
+      // 2. Store assistant message
+      const assistantPayload = {
+        widget,
+        insight: liveInsight,
+      };
 
-    await prisma.conversationHistory.create({
-      data: {
-        tenantId,
-        role: 'assistant',
-        content: JSON.stringify(assistantPayload),
-      },
-    });
+      await prisma.conversationHistory.create({
+        data: {
+          tenantId,
+          role: 'assistant',
+          content: JSON.stringify(assistantPayload),
+        },
+      });
+    } catch (historyErr) {
+      console.error('Failed to store conversation history:', historyErr);
+    }
 
     return res.json({
       widget,
       insight: liveInsight,
+      intent,
+      dataSnapshot,
+      prunedRows,
     });
   } catch (error: any) {
     console.error('Chat error:', error);

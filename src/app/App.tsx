@@ -130,14 +130,7 @@ function AppShell() {
     }
   }, [setActiveView]);
 
-
-  // Ensure dashboard loads on root path
-  useEffect(() => {
-    if (location.pathname === '/' && activeView !== 'dashboards') {
-      navigate('/dashboards', { replace: true });
-    }
-  }, [location.pathname, activeView, navigate]);
-
+  // Keep refs of pathname and activeView to decouple effect loops
   const activeViewRef = useRef(activeView);
   const locationPathnameRef = useRef(location.pathname);
 
@@ -197,9 +190,6 @@ function AppShell() {
         break;
       case '/ai-analysis':
         targetView = 'ai';
-        break;
-      case '/':
-        targetView = 'dashboards';
         break;
       default:
         if (path.length > 1) {

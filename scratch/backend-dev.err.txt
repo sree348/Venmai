@@ -1,0 +1,218 @@
+⚠️ [CRITICAL] Uncaught Exception detected: Error: listen EADDRINUSE: address already in use :::3000
+    at Server.setupListenHandle [as _listen2] (node:net:2008:16)
+    at listenInCluster (node:net:2065:12)
+    at Server.listen (node:net:2170:7)
+    at <anonymous> (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\src\server.ts:98:14)
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3000
+}
+Failed to initialize or auto-sync Meta connection from .env: AxiosError: connect ECONNREFUSED 127.0.0.1:9
+    at AxiosError.from (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/backend/node_modules/axios/lib/core/AxiosError.js:77:24)
+    at RedirectableRequest.handleRequestError (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/backend/node_modules/axios/lib/adapters/http.js:1161:27)
+    at RedirectableRequest.emit (node:events:521:24)
+    at eventHandlers.<computed> (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\follow-redirects\index.js:56:24)
+    at ClientRequest.emit (node:events:509:28)
+    at onerror (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\agent-base\src\index.ts:236:9)
+    at callbackError (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\agent-base\src\index.ts:258:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at Axios.request (file:///C:/Users/Venpep%20office/Downloads/Mip-main%20(2)/Mip-main/backend/node_modules/axios/lib/core/Axios.js:46:41)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async graphGet (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\src\services\meta.fetch.ts:74:20)
+    at async fetchAndStoreCampaigns (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\src\services\meta.fetch.ts:96:30)
+    at async initializeMetaConnectionFromEnv (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\src\jobs\meta.sync.job.ts:39:22) {
+  isAxiosError: true,
+  code: 'ECONNREFUSED',
+  config: [Object: null prototype] {
+    transitional: {
+      silentJSONParsing: true,
+      forcedJSONParsing: true,
+      clarifyTimeoutError: false,
+      legacyInterceptorReqResOrdering: true
+    },
+    adapter: [ 'xhr', 'http', 'fetch' ],
+    transformRequest: [ [Function: transformRequest] ],
+    transformResponse: [ [Function: transformResponse] ],
+    timeout: 0,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: { FormData: [Function], Blob: [class Blob] },
+    validateStatus: [Function: validateStatus],
+    headers: Object [AxiosHeaders] {
+      Accept: 'application/json, text/plain, */*',
+      'Content-Type': undefined,
+      'User-Agent': 'axios/1.16.1',
+      'Accept-Encoding': 'gzip, compress, deflate, br'
+    },
+    params: {
+      fields: 'id,name,account_status',
+      access_token: 'EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq'
+    },
+    method: 'get',
+    url: 'https://graph.facebook.com/v19.0/me/adaccounts',
+    allowAbsoluteUrls: true,
+    data: undefined
+  },
+  request: <ref *1> Writable {
+    _events: {
+      close: [Function],
+      error: [Function: handleRequestError],
+      prefinish: undefined,
+      finish: undefined,
+      drain: undefined,
+      response: [Function: handleResponse],
+      socket: [Array],
+      abort: undefined
+    },
+    _writableState: WritableState {
+      highWaterMark: 16384,
+      length: 0,
+      corked: 0,
+      onwrite: [Function (anonymous)],
+      writelen: 0,
+      bufferedIndex: 0,
+      pendingcb: 0,
+      Symbol(kState): 17580812,
+      Symbol(kBufferedValue): null
+    },
+    _maxListeners: undefined,
+    _options: {
+      maxRedirects: 21,
+      maxBodyLength: Infinity,
+      protocol: 'https:',
+      path: '/v19.0/me/adaccounts?fields=id,name,account_status&access_token=EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq',
+      method: 'GET',
+      headers: [Object: null prototype],
+      agents: [Object],
+      auth: undefined,
+      family: undefined,
+      beforeRedirect: [Function: dispatchBeforeRedirect],
+      beforeRedirects: [Object: null prototype],
+      http2Options: undefined,
+      hostname: 'graph.facebook.com',
+      port: '',
+      agent: [HttpsProxyAgent],
+      insecureHTTPParser: false,
+      nativeProtocols: [Object],
+      sensitiveHeaders: [],
+      pathname: '/v19.0/me/adaccounts',
+      search: '?fields=id,name,account_status&access_token=EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq'
+    },
+    _ended: true,
+    _ending: true,
+    _redirectCount: 0,
+    _redirects: [],
+    _requestBodyLength: 0,
+    _requestBodyBuffers: [],
+    _eventsCount: 4,
+    _onNativeResponse: [Function (anonymous)],
+    _headerFilter: /^(?:Authorization|Proxy-Authorization|Cookie)$/i,
+    _currentRequest: ClientRequest {
+      _events: [Object: null prototype],
+      _eventsCount: 7,
+      _maxListeners: undefined,
+      outputData: [Array],
+      outputSize: 442,
+      writable: true,
+      destroyed: false,
+      _last: true,
+      chunkedEncoding: false,
+      shouldKeepAlive: false,
+      maxRequestsOnConnectionReached: false,
+      _defaultKeepAlive: true,
+      useChunkedEncodingByDefault: false,
+      sendDate: false,
+      _removedConnection: false,
+      _removedContLen: false,
+      _removedTE: false,
+      strictContentLength: false,
+      _contentLength: 0,
+      _hasBody: true,
+      _trailer: '',
+      finished: true,
+      _headerSent: true,
+      _closed: false,
+      _header: 'GET /v19.0/me/adaccounts?fields=id,name,account_status&access_token=EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq HTTP/1.1\r\n' +
+        'Accept: application/json, text/plain, */*\r\n' +
+        'User-Agent: axios/1.16.1\r\n' +
+        'Accept-Encoding: gzip, compress, deflate, br\r\n' +
+        'Host: graph.facebook.com\r\n' +
+        'Connection: close\r\n' +
+        '\r\n',
+      _keepAliveTimeout: 0,
+      _onPendingData: [Function: nop],
+      agent: [HttpsProxyAgent],
+      socketPath: undefined,
+      method: 'GET',
+      maxHeaderSize: undefined,
+      insecureHTTPParser: false,
+      joinDuplicateHeaders: undefined,
+      _ended: false,
+      res: null,
+      aborted: false,
+      timeoutCb: null,
+      upgradeOrConnect: false,
+      parser: null,
+      maxHeadersCount: null,
+      reusedSocket: false,
+      host: 'graph.facebook.com',
+      protocol: 'https:',
+      _redirectable: [Circular *1],
+      _hadError: true,
+      Symbol(shapeMode): false,
+      Symbol(kCapture): false,
+      Symbol(kBytesWritten): 0,
+      Symbol(kNeedDrain): false,
+      Symbol(corked): 0,
+      Symbol(kChunkedBuffer): [],
+      Symbol(kChunkedLength): 0,
+      Symbol(kSocket): null,
+      Symbol(kOutHeaders): [Object: null prototype],
+      Symbol(errored): null,
+      Symbol(kHighWaterMark): 16384,
+      Symbol(kRejectNonStandardBodyWrites): false,
+      Symbol(kPath): '/v19.0/me/adaccounts?fields=id,name,account_status&access_token=EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq',
+      Symbol(kUniqueHeaders): null
+    },
+    _currentUrl: 'https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&access_token=EAAJGBPkRF7YBRhJFhChT4xZAISH5jZBqh1Gp2nGYHxn3gaF8az5SCQ4ZBhLJ6vDMxnSivzjO5YdZAdotsIVNsJEtAb0QvAAUqPNeZAvYUZA9dJYgTVLZAxBn1k4CcxVVaNAHBX6dRBcK2REE6sPGFuZB34HfhnU3BMVfcZA2cizb0wUCZAnZA6lrcfAPNzGyD4ZA0Wuq',
+    Symbol(shapeMode): true,
+    Symbol(kCapture): false
+  },
+  cause: Error: connect ECONNREFUSED 127.0.0.1:9
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1705:16) {
+    errno: -4078,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '127.0.0.1',
+    port: 9
+  }
+}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+Error: spawn EPERM
+    at ChildProcess.spawn (node:internal/child_process:441:11)
+    at Object.spawn (node:child_process:796:9)
+    at ensureServiceIsRunning (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\esbuild\lib\main.js:2268:29)
+    at startSyncServiceWorker (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\esbuild\lib\main.js:2474:19)
+    at Object.<anonymous> (C:\Users\Venpep office\Downloads\Mip-main (2)\Mip-main\backend\node_modules\esbuild\lib\main.js:2515:3)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/loader:1553:32)
+    at Module._load (node:internal/modules/cjs/loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19) {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'spawn',
+  name: 'TransformError'
+}
+
+Node.js v24.15.0

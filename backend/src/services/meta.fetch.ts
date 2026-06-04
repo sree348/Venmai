@@ -2,6 +2,7 @@ import axios from 'axios';
 import { prisma } from './prisma.service.js';
 import { emitDataReady } from './realtime.service.js';
 import { runBrainAnalysis } from '../jobs/brain.job.js';
+import { AI_BRAIN_DATE_WINDOW } from './ai-brain.service.js';
 
 const GRAPH_BASE_URL = 'https://graph.facebook.com/v19.0';
 
@@ -48,13 +49,9 @@ function dateOnly(value: string) {
 }
 
 function getDateRange() {
-  const today = new Date();
-  const from = new Date();
-  from.setDate(today.getDate() - 180);
-
   return {
-    since: from.toISOString().slice(0, 10),
-    until: today.toISOString().slice(0, 10),
+    since: AI_BRAIN_DATE_WINDOW.from,
+    until: AI_BRAIN_DATE_WINDOW.to,
   };
 }
 

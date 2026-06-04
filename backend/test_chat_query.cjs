@@ -55,7 +55,7 @@ Always return only this JSON:
 
 function prepareAiSql(rawSql, scopeId) {
   const mappedSql = rawSql.replace(/\bGOLD_CAMPAIGN_DAILY\b/gi, 'campaign_data');
-  
+
   // Strip trailing semicolon
   let trimmed = mappedSql.trim().replace(/;\s*$/, '').trim();
 

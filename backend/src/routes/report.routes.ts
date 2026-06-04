@@ -2,7 +2,8 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import Groq from 'groq-sdk';
+import { ChatGroq } from '@langchain/groq';
+import { SystemMessage } from '@langchain/core/messages';
 // @ts-ignore
 import * as docx from 'docx';
 import { prisma } from '../services/prisma.service.js';
@@ -220,7 +221,6 @@ reportRouter.post('/agency/report', requireJwtAuth, async (req: AuthenticatedReq
     const apiKey = process.env.GROQ_API_KEY;
     if (apiKey) {
       try {
-        const groq = new Groq({ apiKey });
         const summaryMetrics = {
           totalSpend,
           avgCPC,
@@ -236,19 +236,22 @@ reportRouter.post('/agency/report', requireJwtAuth, async (req: AuthenticatedReq
           frequencyWarningCount: frequencyWarnings.length,
         };
 
-        const completion = await groq.chat.completions.create({
+        const model = new ChatGroq({
+          apiKey,
           model: 'llama-3.3-70b-versatile',
           temperature: 0.3,
-          response_format: { type: 'json_object' },
-          messages: [
-            {
-              role: 'system',
-              content: `You are a senior marketing strategist. Write 3 actionable, high-impact marketing recommendations for a client performance report. Data: ${JSON.stringify(summaryMetrics)}. Return exactly a JSON object with a single field 'recommendations' containing an array of 3 plain text strings. Format: { "recommendations": ["string1", "string2", "string3"] }. Keep each recommendation under 2 sentences, clear, precise, and containing actual numbers from the data where relevant. Do not output markdown or headers.`,
-            },
-          ],
-        });
+          modelKwargs: {
+            response_format: { type: 'json_object' },
+          },
+        } as any);
 
-        const responseText = completion.choices[0]?.message?.content;
+        const systemPrompt = `You are a senior marketing strategist. Write 3 actionable, high-impact marketing recommendations for a client performance report. Data: ${JSON.stringify(summaryMetrics)}. Return exactly a JSON object with a single field 'recommendations' containing an array of 3 plain text strings. Format: { "recommendations": ["string1", "string2", "string3"] }. Keep each recommendation under 2 sentences, clear, precise, and containing actual numbers from the data where relevant. Do not output markdown or headers.`;
+
+        const response = await model.invoke([
+          new SystemMessage(systemPrompt),
+        ]);
+
+        const responseText = String(response.content);
         if (responseText) {
           const parsed = JSON.parse(responseText.trim());
           if (Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
@@ -496,22 +499,22 @@ reportRouter.post('/agency/report', requireJwtAuth, async (req: AuthenticatedReq
     );
 
     // Section 4 — Campaigns Needing Attention
-    const attentionRows = zeroConversionCampaigns.length > 0 
+    const attentionRows = zeroConversionCampaigns.length > 0
       ? zeroConversionCampaigns.map(c => new TableRow({
-          children: [
-            createTableCell(c.name, { bold: true }),
-            createTableCell(formatInr(c.spend)),
-            createTableCell('Zero conversion campaign with spend > ₹1,000', { color: 'C62828' }),
-            createTableCell('Pause campaign immediately to stop budget bleed, and refresh creative assets or landing page copy.', { italic: true }),
-          ],
-        }))
+        children: [
+          createTableCell(c.name, { bold: true }),
+          createTableCell(formatInr(c.spend)),
+          createTableCell('Zero conversion campaign with spend > ₹1,000', { color: 'C62828' }),
+          createTableCell('Pause campaign immediately to stop budget bleed, and refresh creative assets or landing page copy.', { italic: true }),
+        ],
+      }))
       : [
-          new TableRow({
-            children: [
-              createTableCell('All active campaigns are performing within healthy boundaries.', { width: 100, bold: true, italic: true }),
-            ],
-          }),
-        ];
+        new TableRow({
+          children: [
+            createTableCell('All active campaigns are performing within healthy boundaries.', { width: 100, bold: true, italic: true }),
+          ],
+        }),
+      ];
 
     // If we only have a placeholder row, adjust columns span (done easily by providing a single full-width cell)
     docChildren.push(
@@ -534,36 +537,36 @@ reportRouter.post('/agency/report', requireJwtAuth, async (req: AuthenticatedReq
         ],
         spacing: { after: 200 },
       }),
-      zeroConversionCampaigns.length > 0 
+      zeroConversionCampaigns.length > 0
         ? new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                children: [
-                  createTableCell('Campaign Name', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 30 }),
-                  createTableCell('Spend', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 15 }),
-                  createTableCell('Issue', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 25 }),
-                  createTableCell('Recommended Action', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 30 }),
-                ],
-              }),
-              ...attentionRows,
-            ],
-          })
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                createTableCell('Campaign Name', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 30 }),
+                createTableCell('Spend', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 15 }),
+                createTableCell('Issue', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 25 }),
+                createTableCell('Recommended Action', { bold: true, shading: '1F4E78', color: 'FFFFFF', width: 30 }),
+              ],
+            }),
+            ...attentionRows,
+          ],
+        })
         : new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [
-              new TableRow({
-                children: [
-                  createTableCell('Excellent News: No campaigns currently require urgent attention. All active spending campaigns are converting successfully.', {
-                    width: 100,
-                    bold: true,
-                    color: '2E7D32',
-                    shading: 'E8F5E9',
-                  }),
-                ],
-              }),
-            ],
-          })
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [
+            new TableRow({
+              children: [
+                createTableCell('Excellent News: No campaigns currently require urgent attention. All active spending campaigns are converting successfully.', {
+                  width: 100,
+                  bold: true,
+                  color: '2E7D32',
+                  shading: 'E8F5E9',
+                }),
+              ],
+            }),
+          ],
+        })
     );
 
     // Section 5 — AI Recommendations

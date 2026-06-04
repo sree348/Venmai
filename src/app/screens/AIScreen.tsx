@@ -32,6 +32,66 @@ const QUICK_CHIPS = [
   "Summarize Meta spend, conversions, CPC, and CPL this month"
 ];
 
+const GENERIC_CONVERSATION_PATTERNS = [
+  /\bhi\b/i,
+  /\bhello\b/i,
+  /\bhey\b/i,
+  /\bgood\s+(morning|afternoon|evening)\b/i,
+  /\bthanks?\b/i,
+  /\bthank\s+you\b/i,
+  /\bwho\s+are\s+you\b/i,
+  /\bwhat\s+can\s+you\s+do\b/i,
+];
+
+const META_ANALYTICS_TERMS = [
+  'ad',
+  'ads',
+  'campaign',
+  'campaigns',
+  'meta',
+  'facebook',
+  'instagram',
+  'spend',
+  'budget',
+  'cpc',
+  'cpl',
+  'ctr',
+  'cpm',
+  'roas',
+  'lead',
+  'leads',
+  'conversion',
+  'conversions',
+  'click',
+  'clicks',
+  'impression',
+  'impressions',
+  'frequency',
+  'fatigue',
+  'pause',
+  'scale',
+  'performance',
+  'waste',
+  'report',
+];
+
+function isGenericConversation(prompt: string) {
+  const normalized = prompt.trim().toLowerCase();
+  const hasAnalyticsTerm = META_ANALYTICS_TERMS.some(term => normalized.includes(term));
+  return !hasAnalyticsTerm && GENERIC_CONVERSATION_PATTERNS.some(pattern => pattern.test(prompt));
+}
+
+function buildGenericAgentReply(prompt: string) {
+  const normalized = prompt.trim().toLowerCase();
+  if (/\bthanks?\b|\bthank\s+you\b/.test(normalized)) {
+    return 'You are welcome. I am here when you want a clean read on CAI Media campaign movement, waste, fatigue, or scaling opportunities.';
+  }
+  if (/\bwho\s+are\s+you\b|\bwhat\s+can\s+you\s+do\b/.test(normalized)) {
+    return 'I am your CAI Media Meta Ads intelligence agent. Ask me about campaign spend, CPL, CTR, CPM, ROAS, frequency, budget waste, or what to pause and scale.';
+  }
+  return 'Hi. I am your CAI Media marketing agent. Ask me anything about your Meta Ads campaigns, or tell me which campaign you want me to inspect.';
+}
+
 const BENCHMARKS = {
   cpcCritical: 80,
   frequencyWarning: 3,
@@ -173,9 +233,686 @@ function getCampaignMetrics(c: any) {
   const cpc = clicks > 0 ? spend / clicks : Number(c.cpc || 0);
   const ctr = impressions > 0 ? (clicks / impressions) * 100 : Number(c.ctr || 0);
   const roas = Number(c.roas || 0);
+  const reach = Number(c.reach || 0);
+  const cpm = impressions > 0 ? (spend / impressions) * 1000 : Number(c.cpm || 0);
+  const cpl = conversions > 0 ? spend / conversions : 0;
+  const clickToLeadCvr = clicks > 0 ? (conversions / clicks) * 100 : 0;
 
-  return { spend, clicks, impressions, conversions, frequency, cpc, ctr, roas };
+  return { spend, clicks, impressions, conversions, frequency, cpc, ctr, roas, reach, cpm, cpl, clickToLeadCvr };
 }
+
+function detectCampaignType(name: string) {
+  const lower = name.toLowerCase();
+  if (lower.includes('commercial')) return 'COMMERCIAL';
+  if (lower.includes('branding') || lower.includes('insta') || lower.includes('esuv')) return 'BRANDING';
+  if (lower.includes('sales') || lower.includes('xev') || lower.includes('passenger') || lower.includes('leads')) return 'LEAD_GEN';
+  return 'LEAD_GEN';
+}
+
+function formatMetricValue(metric: string, value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === 'N/A') return 'N/A';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return String(value);
+  if (metric.includes('CPL') || metric.includes('CPM')) return formatInr(numeric);
+  if (metric.includes('CVR') || metric.includes('CTR') || metric.includes('Engagement')) return `${numeric.toFixed(2)}%`;
+  if (metric.includes('Frequency')) return numeric.toFixed(2);
+  if (metric.includes('ROAS')) return `${numeric.toFixed(2)}x`;
+  return numeric.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function buildSeniorFallbackResponse(prompt: string, campaigns: any[], activeClientName?: string) {
+  const normalized = prompt.toLowerCase();
+  const enriched = campaigns.map((campaign: any) => {
+    const name = campaign.name || campaign.campaignName || 'Unnamed campaign';
+    return {
+      ...campaign,
+      name,
+      campaign_name: name,
+      campaignType: detectCampaignType(name),
+      metrics: getCampaignMetrics(campaign),
+    };
+  });
+
+  const requestedType = normalized.includes('commercial')
+    ? 'COMMERCIAL'
+    : normalized.includes('branding') || normalized.includes('insta') || normalized.includes('esuv')
+      ? 'BRANDING'
+      : normalized.includes('sales') || normalized.includes('xev') || normalized.includes('passenger') || normalized.includes('lead')
+        ? 'LEAD_GEN'
+        : null;
+
+  const scoped = requestedType ? enriched.filter(c => c.campaignType === requestedType) : enriched;
+  const rows = (scoped.length ? scoped : enriched).filter(c => c.metrics.spend > 0 || c.metrics.impressions > 0);
+  const leadRows = rows.filter(c => c.campaignType === 'LEAD_GEN');
+  const commercialRows = rows.filter(c => c.campaignType === 'COMMERCIAL');
+  const brandingRows = rows.filter(c => c.campaignType === 'BRANDING');
+  const focusType = requestedType || (leadRows.length >= commercialRows.length && leadRows.length >= brandingRows.length ? 'LEAD_GEN' : commercialRows.length >= brandingRows.length ? 'COMMERCIAL' : 'BRANDING');
+  const categoryRows = rows.filter(c => c.campaignType === focusType);
+  const peers = categoryRows.length ? categoryRows : rows;
+
+  const sorters: Record<string, (a: any, b: any) => number> = {
+    LEAD_GEN: (a, b) => (b.metrics.cpl || Infinity) - (a.metrics.cpl || Infinity),
+    COMMERCIAL: (a, b) => b.metrics.cpm - a.metrics.cpm,
+    BRANDING: (a, b) => b.metrics.cpm - a.metrics.cpm,
+  };
+  const bestSorters: Record<string, (a: any, b: any) => number> = {
+    LEAD_GEN: (a, b) => (a.metrics.cpl || Infinity) - (b.metrics.cpl || Infinity),
+    COMMERCIAL: (a, b) => b.metrics.ctr - a.metrics.ctr,
+    BRANDING: (a, b) => a.metrics.cpm - b.metrics.cpm,
+  };
+
+  const focus = [...peers].sort(sorters[focusType])[0] || peers[0];
+  const best = [...peers].sort(bestSorters[focusType])[0] || focus;
+  const focusMetrics = focus?.metrics || {};
+  const bestMetrics = best?.metrics || {};
+
+  const metricRows = focusType === 'LEAD_GEN'
+    ? [
+        ['CPL', focusMetrics.cpl || 0, bestMetrics.cpl || 0, (focusMetrics.cpl || 0) - (bestMetrics.cpl || 0)],
+        ['Total Leads', focusMetrics.conversions || 0, bestMetrics.conversions || 0, (focusMetrics.conversions || 0) - (bestMetrics.conversions || 0)],
+        ['Click-to-Lead CVR', focusMetrics.clickToLeadCvr || 0, bestMetrics.clickToLeadCvr || 0, (focusMetrics.clickToLeadCvr || 0) - (bestMetrics.clickToLeadCvr || 0)],
+        ['Form drop-off', 'Not tracked', 'Not tracked', 'N/A'],
+      ]
+    : focusType === 'COMMERCIAL'
+      ? [
+          ['CTR', focusMetrics.ctr || 0, bestMetrics.ctr || 0, (focusMetrics.ctr || 0) - (bestMetrics.ctr || 0)],
+          ['ROAS', focusMetrics.roas || 0, bestMetrics.roas || 0, (focusMetrics.roas || 0) - (bestMetrics.roas || 0)],
+          ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
+          ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
+          ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
+        ]
+      : [
+          ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
+          ['Engagement Rate', 'Not tracked', 'Not tracked', 'N/A'],
+          ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
+          ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
+        ];
+
+  const table = [
+    '| Metric | This Campaign | Best in Category | Gap |',
+    '|---|---:|---:|---:|',
+    ...metricRows.map(([metric, current, bestValue, gap]) =>
+      `| ${metric} | ${formatMetricValue(String(metric), current as any)} | ${formatMetricValue(String(metric), bestValue as any)} | ${formatMetricValue(String(metric), gap as any)} |`
+    ),
+  ].join('\n');
+
+  const chartMetric = focusType === 'LEAD_GEN' ? 'cpl' : focusType === 'COMMERCIAL' ? 'ctr' : 'cpm';
+  const chartLabel = focusType === 'LEAD_GEN' ? 'CPL' : focusType === 'COMMERCIAL' ? 'CTR' : 'CPM';
+  const chartRows = [...peers]
+    .sort((a, b) => Number(b.metrics[chartMetric] || 0) - Number(a.metrics[chartMetric] || 0))
+    .slice(0, 6)
+    .map(c => ({
+      campaign_name: c.name,
+      campaign_type: c.campaignType,
+      [chartMetric]: Number(c.metrics[chartMetric] || 0),
+      spend: c.metrics.spend,
+      leads: c.metrics.conversions,
+      ctr: c.metrics.ctr,
+      cpm: c.metrics.cpm,
+      frequency: c.metrics.frequency,
+    }));
+
+  const headline = focusType === 'LEAD_GEN'
+    ? `${focus.name} is the lead-gen campaign I would inspect first: ${formatInr(focusMetrics.cpl || 0)} CPL against ${best.name} at ${formatInr(bestMetrics.cpl || 0)}.`
+    : focusType === 'COMMERCIAL'
+      ? `${focus.name} is carrying the commercial efficiency risk: ${formatInr(focusMetrics.cpm || 0)} CPM with ${Number(focusMetrics.ctr || 0).toFixed(2)}% CTR.`
+      : `${focus.name} is the branding watchlist item: ${formatInr(focusMetrics.cpm || 0)} CPM and ${Number(focusMetrics.frequency || 0).toFixed(2)} frequency.`;
+
+  const redFlags = focusType === 'LEAD_GEN'
+    ? [
+        `🔴 critical ${focus.name}: CPL is ${formatInr(focusMetrics.cpl || 0)}, while ${best.name} is at ${formatInr(bestMetrics.cpl || 0)} in the same LEAD_GEN category.`,
+        `⚠️ warning ${focus.name}: click-to-lead CVR is ${Number(focusMetrics.clickToLeadCvr || 0).toFixed(2)}%, so clicks are not converting into lead volume efficiently.`,
+        `✅ good ${best.name}: ${Number(bestMetrics.conversions || 0).toLocaleString('en-IN')} leads gives us a cleaner benchmark to copy.`,
+      ]
+    : [
+        `🔴 critical ${focus.name}: CPM is ${formatInr(focusMetrics.cpm || 0)}, above the strongest same-type peer at ${formatInr(bestMetrics.cpm || 0)}.`,
+        `⚠️ warning ${focus.name}: frequency is ${Number(focusMetrics.frequency || 0).toFixed(2)}, so creative fatigue may be inflating delivery cost.`,
+        `✅ good ${best.name}: this is the same-category benchmark to study before moving budget.`,
+      ];
+
+  const rootCause = focusType === 'LEAD_GEN'
+    ? `${focus.name} is not just expensive; it is leaking efficiency between click and lead. The spend is ${formatInr(focusMetrics.spend || 0)}, clicks are ${Number(focusMetrics.clicks || 0).toLocaleString('en-IN')}, and leads are ${Number(focusMetrics.conversions || 0).toLocaleString('en-IN')}, which points to offer, form friction, or audience intent mismatch rather than only media buying.`
+    : `${focus.name} is paying more to reach the same market than its category peer set. With ${formatInr(focusMetrics.spend || 0)} spend, ${Number(focusMetrics.impressions || 0).toLocaleString('en-IN')} impressions, and ${Number(focusMetrics.frequency || 0).toFixed(2)} frequency, the likely issue is audience saturation or a creative that is no longer earning cheap delivery.`;
+
+  const recommendationTable = [
+    '| Action | Why | Priority |',
+    '|---|---|---|',
+    `| Audit ${focus.name} audience and placement split | The category gap is visible on ${chartLabel}; this is where waste is hiding. | High |`,
+    `| Copy the strongest signal from ${best.name} | It is the best same-type benchmark, so learn from its targeting, creative hook, and offer. | High |`,
+    `| Shift 10-15% test budget only after the weak metric improves | Scaling before fixing the gap will compound inefficient delivery. | Medium |`,
+  ].join('\n');
+
+  const chartData = {
+    type: 'bar',
+    title: `${focusType} ${chartLabel} comparison`,
+    labels: chartRows.map(row => row.campaign_name),
+    datasets: [{ label: chartLabel, data: chartRows.map(row => Number(row[chartMetric] || 0)) }],
+  };
+
+  const insight = [
+    headline,
+    '',
+    table,
+    '',
+    redFlags.map(item => `- ${item}`).join('\n'),
+    '',
+    rootCause,
+    '',
+    recommendationTable,
+    '',
+    '```chartdata',
+    JSON.stringify(chartData, null, 2),
+    '```',
+    '',
+    '---',
+    '🔍 **You should also look at:**',
+    `${best.name} is the best same-category benchmark, but its winning metric may not be protected if budget shifts too aggressively.`,
+    `${focus.name} has ${formatInr(focusMetrics.spend || 0)} already committed, so even a small efficiency fix can free budget quickly.`,
+    '',
+    '**Ask me:**',
+    `- "Why is ${focus.name} ${chartLabel} worse than ${best.name} with ${formatInr(focusMetrics.spend || 0)} spend?"`,
+    `- "Which same-category campaign should receive budget from ${focus.name} first?"`,
+    `- "Build me a 3-step fix plan for ${focus.name} before the next Meta sync."`,
+    '---',
+  ].join('\n');
+
+  return {
+    widget: {
+      chart_type: 'bar_chart',
+      title: `${focusType} ${chartLabel} comparison`,
+      data: chartRows,
+      config: {
+        x_axis: 'campaign_name',
+        y_axis: chartMetric,
+        sort: focusType === 'COMMERCIAL' ? 'DESC' : 'DESC',
+      },
+      sql: null,
+      insight,
+    },
+    insight,
+  };
+}
+
+export interface ParsedTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface ParsedRedFlag {
+  type: 'critical' | 'warning' | 'good';
+  text: string;
+}
+
+export interface ParsedRecommendation {
+  action: string;
+  why: string;
+  priority: 'High' | 'Medium' | 'Low' | string;
+}
+
+export interface ParsedOutput {
+  headline: string;
+  metricsTable: ParsedTable | null;
+  analystThinking: string;
+  redFlags: ParsedRedFlag[];
+  rootCause: string;
+  recommendations: ParsedRecommendation[];
+  alsoLookAt: string[];
+  askMe: string[];
+  remainingText: string;
+}
+
+export function parseMessageContent(content: string): ParsedOutput {
+  const result: ParsedOutput = {
+    headline: '',
+    metricsTable: null,
+    analystThinking: '',
+    redFlags: [],
+    rootCause: '',
+    recommendations: [],
+    alsoLookAt: [],
+    askMe: [],
+    remainingText: ''
+  };
+
+  // Remove chartdata block
+  const cleanText = content.replace(/```chartdata[\s\S]*?```/g, '').trim();
+  const lines = cleanText.split('\n');
+
+  let currentSection: 'none' | 'analyst_thinking' | 'root_cause' | 'also_look_at' | 'ask_me' = 'none';
+  let tempTableRows: string[][] = [];
+  let tempTableHeaders: string[] = [];
+  let isInTable = false;
+
+  const processTable = () => {
+    if (tempTableHeaders.length > 0) {
+      const isMetrics = tempTableHeaders.some(h => h.toLowerCase().includes('metric'));
+      const isRecs = tempTableHeaders.some(h => h.toLowerCase().includes('action') || h.toLowerCase().includes('priority'));
+
+      if (isMetrics) {
+        result.metricsTable = {
+          headers: tempTableHeaders,
+          rows: tempTableRows
+        };
+      } else if (isRecs) {
+        result.recommendations = tempTableRows.map(row => {
+          const action = row[0] || '';
+          const why = row[1] || '';
+          const priorityText = row[2] || '';
+          let priority = 'Medium';
+          if (priorityText.includes('High') || priorityText.includes('🔴') || priorityText.toLowerCase().includes('critical')) {
+            priority = 'High';
+          } else if (priorityText.includes('Low') || priorityText.includes('✅') || priorityText.toLowerCase().includes('low') || priorityText.toLowerCase().includes('good')) {
+            priority = 'Low';
+          }
+          return { action, why, priority };
+        });
+      }
+    }
+    tempTableHeaders = [];
+    tempTableRows = [];
+    isInTable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Detect Table
+    if (trimmed.startsWith('|')) {
+      isInTable = true;
+      // Parse table row
+      const cells = trimmed
+        .split('|')
+        .map(c => c.trim())
+        .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1); // remove outer empty elements
+
+      // Check if it's separator row
+      const isSeparator = cells.every(c => c.match(/^:?-+:?$/));
+      if (isSeparator) {
+        continue;
+      }
+
+      if (tempTableHeaders.length === 0) {
+        tempTableHeaders = cells;
+      } else {
+        tempTableRows.push(cells);
+      }
+      continue;
+    } else if (isInTable) {
+      // Table ended
+      processTable();
+    }
+
+    // Detect Section Headings
+    const headingMatch = trimmed.match(/^(?:###|##|#)\s*(.*)$/);
+    if (headingMatch) {
+      const headingText = headingMatch[1].trim().toLowerCase();
+      
+      // Clean emoji from heading
+      const cleanHeading = headingText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^\w\s]/g, '').trim();
+
+      if (cleanHeading.includes('analyst thinking')) {
+        currentSection = 'analyst_thinking';
+      } else if (cleanHeading.includes('root cause')) {
+        currentSection = 'root_cause';
+      } else if (cleanHeading.includes('you should also look at') || cleanHeading.includes('look at')) {
+        currentSection = 'also_look_at';
+      } else if (cleanHeading.includes('ask me')) {
+        currentSection = 'ask_me';
+      } else {
+        currentSection = 'none';
+      }
+      continue;
+    }
+
+    // Detect standalone look at / ask me transitions (non-header format or just bold text)
+    if (trimmed.includes('You should also look at:') || trimmed.includes('also look at:')) {
+      currentSection = 'also_look_at';
+      continue;
+    }
+    if (trimmed.includes('Ask me:') || trimmed.toLowerCase().startsWith('ask me')) {
+      currentSection = 'ask_me';
+      continue;
+    }
+
+    // Detect Red Flags
+    const isRedFlagCritical = trimmed.startsWith('🔴') || trimmed.startsWith('- 🔴') || trimmed.startsWith('* 🔴');
+    const isRedFlagWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('- ⚠️') || trimmed.startsWith('* ⚠️');
+    const isRedFlagGood = trimmed.startsWith('✅') || trimmed.startsWith('- ✅') || trimmed.startsWith('* ✅');
+
+    if (isRedFlagCritical || isRedFlagWarning || isRedFlagGood) {
+      let type: 'critical' | 'warning' | 'good' = 'warning';
+      if (isRedFlagCritical) type = 'critical';
+      if (isRedFlagGood) type = 'good';
+
+      // Clean the line from bullets and emojis
+      let flagText = trimmed
+        .replace(/^[-*\s]+/, '') // remove leading dash/asterisk
+        .replace(/^[🔴⚠️✅\s]+/, '') // remove emoji
+        .replace(/^(?:critical|warning|good)\s*/i, '') // remove prefix text
+        .trim();
+
+      result.redFlags.push({ type, text: flagText });
+      continue;
+    }
+
+    // Process lists under current section
+    if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.match(/^\d+\./)) {
+      const itemText = trimmed
+        .replace(/^[-*\d.\s]+/, '') // remove list bullet
+        .replace(/^['"]|['"]$/g, '') // remove outer quotes
+        .trim();
+
+      if (currentSection === 'also_look_at') {
+        result.alsoLookAt.push(itemText);
+        continue;
+      }
+      if (currentSection === 'ask_me') {
+        result.askMe.push(itemText);
+        continue;
+      }
+    }
+
+    // Set headline if empty and not in any section or table
+    if (!result.headline && trimmed && currentSection === 'none') {
+      if (trimmed === '---' || trimmed === '***') {
+        continue;
+      }
+      result.headline = trimmed.replace(/^\*\*|\*\*$/g, ''); // strip bold formatting
+      continue;
+    }
+
+    // Add content to current text section
+    if (trimmed) {
+      if (currentSection === 'analyst_thinking') {
+        result.analystThinking += (result.analystThinking ? '\n' : '') + trimmed;
+      } else if (currentSection === 'root_cause') {
+        result.rootCause += (result.rootCause ? '\n' : '') + trimmed;
+      } else if (currentSection === 'none') {
+        result.remainingText += (result.remainingText ? '\n' : '') + trimmed;
+      }
+    }
+  }
+
+  // Handle table if message ends with table open
+  if (isInTable) {
+    processTable();
+  }
+
+  return result;
+}
+
+interface StructuredMessageRendererProps {
+  content: string;
+  handleSend: (text: string) => void;
+}
+
+const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ content, handleSend }) => {
+  const parsed = parseMessageContent(content);
+  const isStructured = !!(parsed.metricsTable || parsed.redFlags.length > 0 || parsed.recommendations.length > 0 || parsed.rootCause || parsed.analystThinking || parsed.askMe.length > 0);
+
+  const formatInlineText = (text: string) => {
+    if (!text) return null;
+    return text.split('**').map((part, idx) => {
+      if (idx % 2 === 1) {
+        return (
+          <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">
+            {part}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
+  if (!isStructured) {
+    return (
+      <p className="break-words whitespace-pre-line">
+        {content.split('**').map((part: string, idx: number) => 
+          idx % 2 === 0 ? part : <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">{part}</strong>
+        )}
+      </p>
+    );
+  }
+
+  return (
+    <div className="w-full space-y-5 py-1">
+      {/* Headline */}
+      {parsed.headline && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent border border-indigo-100/50 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-xl leading-none select-none">📊</span>
+            <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-800 leading-snug">
+              {formatInlineText(parsed.headline)}
+            </h3>
+          </div>
+        </div>
+      )}
+
+      {/* Metrics Table */}
+      {parsed.metricsTable && (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/70 shadow-sm backdrop-blur-sm">
+          <div className="bg-slate-50/80 px-4 py-2 border-b border-slate-150 flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Performance Snapshot</span>
+            <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Meta Ads</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[400px]">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-200">
+                  {parsed.metricsTable.headers.map((h, idx) => (
+                    <th key={idx} className={`px-4 py-2.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider ${idx > 0 ? 'text-right' : ''}`}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-150">
+                {parsed.metricsTable.rows.map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-slate-50/50 transition-colors">
+                    {row.map((cell, cIdx) => {
+                      const isGap = parsed.metricsTable!.headers[cIdx]?.toLowerCase().includes('gap');
+                      let cellStyle = "px-4 py-2.5 text-xs text-slate-700 font-medium";
+                      if (cIdx === 0) {
+                        cellStyle = "px-4 py-2.5 text-xs text-slate-900 font-bold";
+                      } else if (cIdx > 0) {
+                        cellStyle += " text-right font-mono";
+                      }
+
+                      let cellContent: React.ReactNode = formatInlineText(cell);
+                      if (isGap && cell && cell !== '-' && cell !== '0' && cell !== 'N/A') {
+                        const cleanCell = cell.replace(/[🔴⚠️✅]/g, '').trim();
+                        const isNegative = cleanCell.startsWith('-');
+                        const isPositive = cleanCell.startsWith('+');
+                        
+                        const metricName = row[0]?.toLowerCase() || '';
+                        const isCostMetric = metricName.includes('cpl') || metricName.includes('cpc') || metricName.includes('cpm') || metricName.includes('spend');
+                        
+                        const isGood = isCostMetric ? isNegative : isPositive;
+                        
+                        if (cell.includes('🔴') || cell.includes('⚠️') || cell.includes('✅')) {
+                          // normal render
+                        } else {
+                          if (isGood) {
+                            cellContent = (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                {cell}
+                              </span>
+                            );
+                          } else {
+                            cellContent = (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200">
+                                {cell}
+                              </span>
+                            );
+                          }
+                        }
+                      }
+
+                      return (
+                        <td key={cIdx} className={cellStyle}>
+                          {cellContent}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Analyst Thinking */}
+      {parsed.analystThinking && (
+        <div className="p-4 rounded-xl border border-indigo-100/70 bg-indigo-50/15 shadow-sm">
+          <div className="flex items-center gap-2 mb-2 select-none">
+            <Lightbulb className="size-4 text-indigo-500" />
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600">Analyst Thinking</span>
+          </div>
+          <p className="text-xs sm:text-[13px] text-slate-700 leading-relaxed text-justify font-medium">
+            {formatInlineText(parsed.analystThinking)}
+          </p>
+        </div>
+      )}
+
+      {/* Red Flags */}
+      {parsed.redFlags.length > 0 && (
+        <div className="space-y-2">
+          {parsed.redFlags.map((flag, idx) => {
+            let icon = <AlertTriangle className="size-4 shrink-0" />;
+            let bgClass = "bg-amber-50/40 text-amber-850 border-amber-200/60";
+            let iconClass = "text-amber-500 bg-amber-50 border-amber-100";
+            let label = "Warning";
+
+            if (flag.type === 'critical') {
+              icon = <ShieldAlert className="size-4 shrink-0" />;
+              bgClass = "bg-rose-50/40 text-rose-855 border-rose-200/60";
+              iconClass = "text-rose-500 bg-rose-50 border-rose-100";
+              label = "Critical";
+            } else if (flag.type === 'good') {
+              icon = <Check className="size-4 shrink-0" />;
+              bgClass = "bg-emerald-50/40 text-emerald-855 border-emerald-200/60";
+              iconClass = "text-emerald-500 bg-emerald-50 border-emerald-100";
+              label = "Growth Signal";
+            }
+
+            return (
+              <div key={idx} className={`flex items-start gap-3 p-3.5 rounded-xl border text-xs sm:text-[13px] leading-relaxed font-medium shadow-sm ${bgClass}`}>
+                <div className={`p-1.5 rounded-lg border shadow-sm shrink-0 flex items-center justify-center ${iconClass}`}>
+                  {icon}
+                </div>
+                <div className="flex-1">
+                  <span className="font-extrabold mr-1 uppercase tracking-wider text-[9px] block mb-0.5 opacity-80">{label}</span>
+                  {formatInlineText(flag.text)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Root Cause */}
+      {parsed.rootCause && (
+        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-violet-500" />
+          <div className="flex items-center gap-2 mb-2 select-none">
+            <Cpu className="size-4 text-violet-500" />
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-violet-600">Root Cause Analysis</span>
+          </div>
+          <p className="text-xs sm:text-[13px] text-slate-700 leading-relaxed text-justify font-medium">
+            {formatInlineText(parsed.rootCause)}
+          </p>
+        </div>
+      )}
+
+      {/* Recommendations Table */}
+      {parsed.recommendations.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white/40 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3 select-none">
+            <TrendingUp className="size-4 text-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-600">Strategist Recommendations</span>
+          </div>
+          <div className="space-y-2.5">
+            {parsed.recommendations.map((rec, idx) => {
+              let badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
+              if (rec.priority === 'High') badgeColor = "bg-rose-50 text-rose-700 border-rose-200";
+              else if (rec.priority === 'Low') badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+
+              return (
+                <div key={idx} className="flex gap-3 items-start bg-white/80 hover:bg-white p-3.5 rounded-xl border border-slate-200 transition-all shadow-sm hover:shadow-md">
+                  <div className="pt-0.5 shrink-0">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 size-3.5 cursor-pointer" 
+                      id={`rec-${idx}`}
+                      defaultChecked={false}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-0.5 min-w-0">
+                    <label htmlFor={`rec-${idx}`} className="text-xs sm:text-[13px] font-bold text-slate-800 cursor-pointer block leading-snug">
+                      {formatInlineText(rec.action)}
+                    </label>
+                    <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed font-medium">
+                      {formatInlineText(rec.why)}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0 uppercase tracking-wider ${badgeColor}`}>
+                    {rec.priority}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Also Look At */}
+      {parsed.alsoLookAt.length > 0 && (
+        <div className="p-4 rounded-xl border border-indigo-50/50 bg-indigo-50/5 shadow-sm">
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-2 select-none">🔍 Additional Checklist Items</div>
+          <ul className="space-y-2">
+            {parsed.alsoLookAt.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-[13px] text-slate-600 font-medium leading-relaxed">
+                <span className="text-indigo-400 mt-1 select-none">•</span>
+                <span>{formatInlineText(item)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Remaining Text */}
+      {parsed.remainingText && (
+        <div className="text-xs sm:text-[13px] text-slate-700 leading-relaxed text-justify font-medium">
+          {formatInlineText(parsed.remainingText)}
+        </div>
+      )}
+
+      {/* Ask Me / Clickable Starter Prompts */}
+      {parsed.askMe.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-2.5 px-1 flex items-center gap-1.5 select-none">
+            <Sparkles className="size-3 text-indigo-500 animate-pulse" />
+            Follow-up questions
+          </div>
+          <div className="flex flex-col gap-2">
+            {parsed.askMe.map((question, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(question)}
+                className="text-left text-xs sm:text-[13px] px-3.5 py-2.5 bg-gradient-to-r from-indigo-50/20 to-white hover:from-indigo-50/40 hover:to-indigo-50/10 border border-slate-200 hover:border-indigo-500/35 rounded-xl hover:shadow-sm cursor-pointer transition-all text-slate-700 hover:text-indigo-650 font-semibold flex items-center justify-between group"
+              >
+                <span>{question}</span>
+                <span className="text-indigo-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all text-sm font-bold select-none ml-2">→</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function buildRuleInsights(campaigns: any[]) {
   return campaigns.flatMap((campaign: any) => {
@@ -1113,6 +1850,17 @@ export default function AIScreen() {
     setIsTyping(true);
 
     try {
+      if (isGenericConversation(promptText)) {
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: buildGenericAgentReply(promptText),
+          widget: null,
+          createdAt: new Date().toISOString(),
+        }]);
+        return;
+      }
+
       // Gather full conversation history
       const cleanHistory = messages.map(({ role, content }) => ({ role, content }));
 
@@ -1135,7 +1883,18 @@ export default function AIScreen() {
       setMessages(prev => [...prev, assistantMsg]);
     } catch (error: any) {
       console.error('Chat submit failed:', error);
-      const fallback = buildLocalFallbackResponse(promptText, campaigns, activeClient?.name);
+      if (isGenericConversation(promptText)) {
+        setIsTyping(false);
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: buildGenericAgentReply(promptText),
+          widget: null,
+          createdAt: new Date().toISOString(),
+        }]);
+        return;
+      }
+
+      const fallback = buildSeniorFallbackResponse(promptText, campaigns, activeClient?.name);
       setIsTyping(false);
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -1152,8 +1911,7 @@ export default function AIScreen() {
           duration: 6000,
         });
       } else {
-        toast.info('Local Intelligence Optimizer', {
-          description: 'This query was processed using our local campaign rule engine for precision marketing insights.',
+        toast.info('This query was processed using our local campaign rule engine for precision marketing insights.', {
           duration: 5000,
         });
       }
@@ -1813,21 +2571,17 @@ export default function AIScreen() {
                         </div>
 
                         {/* Content Bubble */}
-                        <div className={`flex flex-col gap-1.5 max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} w-full`}>
                           <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                             isUser 
                               ? 'bg-slate-100 text-slate-800 border border-slate-200/60 rounded-tr-none shadow-sm text-justify font-medium' 
-                              : 'text-slate-850 font-normal leading-relaxed text-justify pr-2 whitespace-pre-line'
+                              : 'text-slate-850 font-normal leading-relaxed text-justify pr-2 w-full'
                           }`}>
-                            <p className="break-words">
-                              {isUser ? (
-                                msg.content
-                              ) : (
-                                msg.content.split('**').map((part: string, idx: number) => 
-                                  idx % 2 === 0 ? part : <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">{part}</strong>
-                                )
-                              )}
-                            </p>
+                            {isUser ? (
+                              <p className="break-words">{msg.content}</p>
+                            ) : (
+                              <StructuredMessageRenderer content={msg.content} handleSend={handleSend} />
+                            )}
                           </div>
 
                           {/* If Assistant contains widget data, render it */}
