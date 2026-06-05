@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import fs from 'node:fs/promises';
 import { prisma } from '../services/prisma.service.js';
 import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import {
@@ -6,12 +7,13 @@ import {
   classifyAiIntent,
   exportAgentDataSnapshot,
   pruneCampaignDataOutsideBrainWindow,
+  handleAgentChat,
+  extractWidgetFromMarkdown,
 } from '../services/ai-brain.service.js';
 import { runAgentWorkflow } from '../services/agent.service.js';
 
 export const chatRouter = Router();
 
-// POST /api/v1/chat
 chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const { prompt, tenantId = req.auth!.tenantId, clientId, history = [], pageContext } = req.body || {};
@@ -59,23 +61,44 @@ chatRouter.post('/chat', requireJwtAuth, async (req: AuthenticatedRequest, res, 
       });
     }
 
+    let mdSnapshot = '';
     let dataSnapshot = null;
     let prunedRows = 0;
     try {
       dataSnapshot = await exportAgentDataSnapshot(tenantId, clientId || tenantId);
       prunedRows = await pruneCampaignDataOutsideBrainWindow(tenantId, clientId || tenantId);
+      if (dataSnapshot && dataSnapshot.mdPath) {
+        mdSnapshot = await fs.readFile(dataSnapshot.mdPath, 'utf8');
+      }
     } catch (snapshotErr) {
       console.error('AI Brain data snapshot failed; continuing with live Meta query path:', snapshotErr);
     }
 
-    // Call the Agentic Workflow ReAct loop
-    const { widget, insight: liveInsight } = await runAgentWorkflow(
-      prompt,
-      tenantId,
-      clientId || tenantId,
-      history,
-      pageContext
-    );
+    const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+    let liveInsight = '';
+    let widget = null;
+
+    if (anthropicKey) {
+      console.log('[Chat Route] Claude key is active. Using handleAgentChat for single-turn snapshot analysis...');
+      const chatResult = await handleAgentChat({
+        prompt,
+        mdSnapshot,
+        conversationHistory: history,
+      });
+      liveInsight = chatResult.reply;
+      widget = extractWidgetFromMarkdown(liveInsight);
+    } else {
+      console.log('[Chat Route] OpenAI key is active. Falling back to agentic workflow ReAct loop...');
+      const reactResult = await runAgentWorkflow(
+        prompt,
+        tenantId,
+        clientId || tenantId,
+        history,
+        pageContext
+      );
+      liveInsight = reactResult.insight;
+      widget = reactResult.widget;
+    }
 
     // Store each turn in ConversationHistory table
     // 1. Store user message
