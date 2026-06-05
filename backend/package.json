@@ -13,8 +13,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@langchain/anthropic": "^1.4.0",
     "@langchain/core": "^1.1.48",
     "@langchain/groq": "^1.2.1",
+    "@langchain/openai": "^1.4.7",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "axios": "^1.16.1",
@@ -25,6 +27,7 @@
     "groq-sdk": "^1.2.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
+    "openai": "^6.42.0",
     "pg": "^8.21.0",
     "socket.io": "^4.8.3"
   },

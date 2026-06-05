@@ -522,3 +522,36 @@ export function buildMockChatResponse(prompt: string, context?: { campaigns?: an
     insight: context?.insight || 'Mock mode is enabled. CAI Mahindra campaigns represent the automotive portfolio in your ad account.',
   };
 }
+
+export function parseTargetingFromName(name: string, channel = 'Meta') {
+  const norm = String(name || '').toLowerCase();
+  
+  // 1. Determine Product Category
+  let product_category = 'General';
+  if (norm.includes('3xo') || norm.includes('3s')) product_category = 'XUV 3XO';
+  else if (norm.includes('7xo') || norm.includes('7s')) product_category = 'XUV 7XO';
+  else if (norm.includes('9s') || norm.includes('xev')) product_category = 'XEV 9S';
+  else if (norm.includes('thar')) product_category = 'Thar';
+  else if (norm.includes('scorpio')) product_category = 'Scorpio-N';
+  else if (norm.includes('xuv')) product_category = 'XUV700';
+
+  // 2. Determine Optimization Goal (campaign_target)
+  let campaign_target = 'Lead Generation';
+  if (norm.includes('sale') || norm.includes('conv') || norm.includes('purchase')) campaign_target = 'Conversions';
+  else if (norm.includes('traffic') || norm.includes('link') || norm.includes('click') || norm.includes('lead')) campaign_target = 'Traffic';
+  else if (norm.includes('brand') || norm.includes('awareness') || norm.includes('reach') || norm.includes('views')) campaign_target = 'Awareness';
+
+  // 3. Determine Audience Type
+  let audience_type = 'Cold Audience';
+  if (norm.includes('retarget') || norm.includes('rtg') || norm.includes('website') || norm.includes('pixel')) audience_type = 'Retargeting';
+  else if (norm.includes('lal') || norm.includes('lookalike') || norm.includes('affinity')) audience_type = 'Lookalike 1-2%';
+  else if (norm.includes('broad') || norm.includes('core')) audience_type = 'Broad Core Interest';
+
+  // 4. Determine Ad Format
+  let ad_format = 'Single Image';
+  if (norm.includes('video') || norm.includes('vid') || norm.includes('reel') || norm.includes('dynamic')) ad_format = 'Video';
+  else if (norm.includes('carousel') || norm.includes('slide') || norm.includes('multi')) ad_format = 'Carousel';
+  else if (String(channel).toLowerCase().includes('google') || norm.includes('search') || norm.includes('pmax')) ad_format = 'Search Ad';
+
+  return { product_category, campaign_target, audience_type, ad_format };
+}

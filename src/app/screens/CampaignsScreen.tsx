@@ -10,6 +10,34 @@ import ClientAvatar from '../components/shared/ClientAvatar';
 import StatusBadge from '../components/shared/StatusBadge';
 import PlatformDot from '../components/shared/PlatformDot';
 
+function getCampaignLink(campaign?: any, targetType: 'adsets' | 'campaigns' = 'adsets') {
+  if (!campaign) {
+    if (targetType === 'campaigns') {
+      return 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&nav_source=no_referrer#';
+    }
+    return 'https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&nav_source=no_referrer';
+  }
+  const platform = String(campaign.platform || campaign.channel || '').toLowerCase();
+  const id = campaign.id || campaign.campaignId || '';
+  
+  if (platform.includes('google') || platform.includes('youtube')) {
+    return 'https://ads.google.com/';
+  }
+  
+  if (targetType === 'campaigns') {
+    if (id) {
+      return `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&selected_campaign_ids=${id}&nav_source=no_referrer#`;
+    }
+    return 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&nav_source=no_referrer#';
+  }
+  
+  if (id) {
+    return `https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&selected_campaign_ids=${id}&nav_source=no_referrer`;
+  }
+  
+  return 'https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&nav_source=no_referrer';
+}
+
 // Helper function to generate mock ad sets based on the campaign metrics
 function getAdSetsForCampaign(campaign: any) {
   if (!campaign) return [];
@@ -121,6 +149,30 @@ function getAdsForAdSet(adset: any, campaign: any) {
   }));
 }
 
+const getGoalBadgeStyle = (goal: string) => {
+  const norm = String(goal || '').toLowerCase();
+  if (norm.includes('lead')) return 'bg-emerald-50 text-emerald-700 border-emerald-250';
+  if (norm.includes('conv')) return 'bg-indigo-50 text-indigo-700 border-indigo-250';
+  if (norm.includes('traffic')) return 'bg-blue-50 text-blue-750 border-blue-250';
+  return 'bg-slate-50 text-slate-700 border-slate-250';
+};
+
+const getAudienceBadgeStyle = (audience: string) => {
+  const norm = String(audience || '').toLowerCase();
+  if (norm.includes('retarget')) return 'bg-purple-50 text-purple-700 border-purple-250';
+  if (norm.includes('lookalike') || norm.includes('lal')) return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-250';
+  if (norm.includes('broad')) return 'bg-cyan-50 text-cyan-750 border-cyan-250';
+  return 'bg-pink-50 text-pink-700 border-pink-250';
+};
+
+const getFormatBadgeStyle = (format: string) => {
+  const norm = String(format || '').toLowerCase();
+  if (norm.includes('video') || norm.includes('vid')) return 'bg-amber-50 text-amber-700 border-amber-250';
+  if (norm.includes('carousel')) return 'bg-teal-50 text-teal-700 border-teal-250';
+  if (norm.includes('search')) return 'bg-orange-50 text-orange-700 border-orange-250';
+  return 'bg-sky-50 text-sky-750 border-sky-250';
+};
+
 export default function CampaignsScreen() {
   const {
     scopedCampaigns: campaigns,
@@ -161,7 +213,7 @@ export default function CampaignsScreen() {
   const [selectedAdForPreview, setSelectedAdForPreview] = useState<any | null>(null);
 
   // Status and month filters
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused' | 'draft' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
   const [platformFilter, setPlatformFilter] = useState<'all' | 'meta' | 'google'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
@@ -714,8 +766,6 @@ export default function CampaignsScreen() {
               { id: 'all', label: 'All Status' },
               { id: 'active', label: 'Active' },
               { id: 'paused', label: 'Paused' },
-              { id: 'draft', label: 'Draft' },
-              { id: 'inactive', label: 'Non Active' },
             ].map(status => (
               <button
                 key={status.id}
@@ -1006,7 +1056,8 @@ export default function CampaignsScreen() {
                     }
                   </button>
                 </th>
-                {/* Removed On/Off Column */}
+                {/* Serial Number Column */}
+                <th className="px-3 py-3 w-12 font-bold border-r border-slate-100 text-center">#</th>
                 {/* Dynamic Title Header */}
                 <th className="px-4 py-3 font-bold border-r border-slate-150 min-w-80">
                   <div className="flex items-center gap-1 hover:text-slate-800 transition-colors cursor-pointer">
@@ -1015,6 +1066,13 @@ export default function CampaignsScreen() {
                   </div>
                 </th>
                 <th className="px-4 py-3 font-bold border-r border-slate-100">Delivery</th>
+                {activeTab === 'campaigns' && (
+                  <>
+                    <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">Goal</th>
+                    <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">Audience</th>
+                    <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">Format</th>
+                  </>
+                )}
                 <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">Results (Conversions)</th>
                 <th className="px-4 py-3 font-bold border-r border-slate-100 text-center">CTR / Clicks</th>
                 <th className="px-4 py-3 font-bold border-r border-slate-100">Budget</th>
@@ -1029,12 +1087,12 @@ export default function CampaignsScreen() {
               {activeTab === 'campaigns' && (
                 filteredCampaigns.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                    <td colSpan={12} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
                       No campaigns found matching filter context.
                     </td>
                   </tr>
                 ) : (
-                  filteredCampaigns.map(c => {
+                  filteredCampaigns.map((c, index) => {
                     const campaignClient = clients.find((cl: any) => cl.id === c.clientId);
                     const isChecked = selectedCampaignIds.has(c.id);
 
@@ -1055,27 +1113,51 @@ export default function CampaignsScreen() {
                           </button>
                         </td>
 
+                        {/* Serial Number */}
+                        <td className="px-3 py-2.5 border-r border-slate-100 text-center font-bold text-slate-450 font-['JetBrains_Mono']">
+                          {index + 1}
+                        </td>
+
                         {/* Campaign Name (Interactive Link) */}
                         <td className="px-4 py-2.5 font-bold border-r border-slate-150">
                           <div className="flex items-start gap-2 max-w-sm">
                             <PlatformDot platform={c.channel} size="sm" className="mt-0.5" />
                             <div className="min-w-0">
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignId(c.id);
-                                  setActiveTab('adsets');
-                                  // Auto-check this campaign to restrict scope
-                                  setSelectedCampaignIds(new Set([c.id]));
+                              <a
+                                href={getCampaignLink(c, 'adsets')}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  window.open(getCampaignLink(c, 'campaigns'), '_blank');
                                 }}
-                                className="text-indigo-600 hover:text-indigo-800 hover:underline font-bold text-left cursor-pointer p-0 bg-transparent border-0 block truncate max-w-[280px]"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-indigo-650 hover:text-indigo-800 hover:underline font-bold text-left cursor-pointer block truncate max-w-[280px] p-0 bg-transparent border-0"
+                                title="Left-click: View Adsets on Meta | Right-click: View Campaigns on Meta"
                               >
                                 {c.name}
-                              </button>
-                              {campaignClient && (
-                                <span className={`inline-block text-[9px] font-extrabold tracking-wide uppercase px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 mt-1 ${campaignClient.textColor}`}>
-                                  {campaignClient.name}
+                              </a>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                {campaignClient && (
+                                  <span className={`inline-block text-[9px] font-extrabold tracking-wide uppercase px-1.5 py-0.5 rounded bg-slate-50 border border-slate-100 ${campaignClient.textColor}`}>
+                                    {campaignClient.name}
+                                  </span>
+                                )}
+                                <span className="inline-block text-[9px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">
+                                  Launch: {c.start_date ? new Date(c.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : `${MONTH_NAMES[c.month - 1]} ${c.year}`}
                                 </span>
-                              )}
+                                <button
+                                  onClick={() => {
+                                    setSelectedCampaignId(c.id);
+                                    setActiveTab('adsets');
+                                    // Auto-check this campaign to restrict scope
+                                    setSelectedCampaignIds(new Set([c.id]));
+                                  }}
+                                  className="text-[9px] font-extrabold text-slate-400 hover:text-indigo-650 hover:bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 transition-colors inline-flex items-center gap-1 cursor-pointer bg-white"
+                                  title="Filter and view ad sets inside the app"
+                                >
+                                  <Layers className="w-2.5 h-2.5" /> View in App
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -1090,6 +1172,27 @@ export default function CampaignsScreen() {
                           </div>
                         </td>
 
+                        {/* Goal */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${getGoalBadgeStyle(c.campaign_target)}`}>
+                            {c.campaign_target || 'N/A'}
+                          </span>
+                        </td>
+
+                        {/* Audience */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${getAudienceBadgeStyle(c.audience_type)}`}>
+                            {c.audience_type || 'N/A'}
+                          </span>
+                        </td>
+
+                        {/* Format */}
+                        <td className="px-4 py-2.5 border-r border-slate-100 text-center">
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${getFormatBadgeStyle(c.ad_format)}`}>
+                            {c.ad_format || 'N/A'}
+                          </span>
+                        </td>
+
                         {/* Results */}
                         <td className="px-4 py-2.5 border-r border-slate-100 text-center">
                           <p className="font-bold text-slate-800">{c.conv || 0}</p>
@@ -1098,7 +1201,7 @@ export default function CampaignsScreen() {
 
                         {/* CTR / Clicks */}
                         <td className="px-4 py-2.5 border-r border-slate-100 text-center">
-                          <p className="font-bold text-slate-800">{c.ctr}%</p>
+                          <p className="font-bold text-slate-800">{Number(c.ctr || 0).toFixed(2)}%</p>
                           <span className="text-[10px] text-slate-400 font-semibold font-['JetBrains_Mono']">{c.clicks?.toLocaleString()} clicks</span>
                         </td>
 
@@ -1127,7 +1230,7 @@ export default function CampaignsScreen() {
               {activeTab === 'adsets' && (
                 isLoadingAdSets ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
+                    <td colSpan={9} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
                       <div className="flex items-center justify-center gap-2">
                         <Layers className="w-5 h-5 animate-spin" />
                         Fetching real ad sets from Meta Ads Manager...
@@ -1136,12 +1239,12 @@ export default function CampaignsScreen() {
                   </tr>
                 ) : filteredAdSets.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                    <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
                       No Ad Sets found. Click on the "Campaigns" tab to select a campaign first.
                     </td>
                   </tr>
                 ) : (
-                  filteredAdSets.map(as => {
+                  filteredAdSets.map((as, index) => {
                     const isChecked = selectedAdSetIds.has(as.id);
                     const isStatusCritical = as.status === 'critical';
 
@@ -1162,7 +1265,10 @@ export default function CampaignsScreen() {
                           </button>
                         </td>
 
-                        {/* Removed On/Off Cell */}
+                        {/* Serial Number */}
+                        <td className="px-3 py-2.5 border-r border-slate-100 text-center font-bold text-slate-450 font-['JetBrains_Mono']">
+                          {index + 1}
+                        </td>
 
                         {/* Ad Set Name (Interactive Link) */}
                         <td className="px-4 py-2.5 font-bold border-r border-slate-150">
@@ -1232,7 +1338,7 @@ export default function CampaignsScreen() {
               {activeTab === 'ads' && (
                 isLoadingAds ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
+                    <td colSpan={9} className="py-12 text-center text-indigo-650 font-bold bg-indigo-50/5 animate-pulse">
                       <div className="flex items-center justify-center gap-2">
                         <Megaphone className="w-5 h-5 animate-spin" />
                         Fetching active creative assets & insights from Meta Ads Manager...
@@ -1241,12 +1347,12 @@ export default function CampaignsScreen() {
                   </tr>
                 ) : filteredAds.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
+                    <td colSpan={9} className="py-12 text-center text-slate-400 font-semibold bg-slate-50/20">
                       No Creative Ads found. Try selecting an Ad Set first.
                     </td>
                   </tr>
                 ) : (
-                  filteredAds.map(ad => {
+                  filteredAds.map((ad, index) => {
                     const isChecked = selectedAdIds.has(ad.id);
                     const isWarning = ad.status === 'warning';
 
@@ -1265,6 +1371,11 @@ export default function CampaignsScreen() {
                           >
                             {isChecked ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4" />}
                           </button>
+                        </td>
+
+                        {/* Serial Number */}
+                        <td className="px-3 py-2.5 border-r border-slate-100 text-center font-bold text-slate-450 font-['JetBrains_Mono']">
+                          {index + 1}
                         </td>
 
                         {/* Removed On/Off Cell */}
@@ -1317,7 +1428,7 @@ export default function CampaignsScreen() {
 
                         {/* CTR / Clicks */}
                         <td className="px-4 py-2.5 border-r border-slate-100 text-center">
-                          <p className="font-bold text-slate-800">{ad.ctr}%</p>
+                          <p className="font-bold text-slate-800">{Number(ad.ctr || 0).toFixed(2)}%</p>
                           <span className="text-[10px] text-slate-400 font-semibold font-['JetBrains_Mono']">{ad.clicks?.toLocaleString()} clicks</span>
                         </td>
 
@@ -1436,7 +1547,7 @@ export default function CampaignsScreen() {
                   <div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CTR</p>
                     <p className="font-extrabold text-slate-850 mt-0.5 font-['JetBrains_Mono'] text-xs">
-                      {selectedAdForPreview.ctr}%
+                      {Number(selectedAdForPreview.ctr || 0).toFixed(2)}%
                     </p>
                   </div>
                   <div>

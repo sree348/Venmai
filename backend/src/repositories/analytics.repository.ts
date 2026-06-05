@@ -41,6 +41,7 @@ export async function listCampaigns(tenantId: string, clientId?: string) {
         COALESCE(client_id, 'meta') AS "clientId",
         campaign_name AS "name",
         platform AS channel,
+        MIN(date)::text AS "start_date",
         SUM(spend)::FLOAT AS spend,
         SUM(spend)::FLOAT AS budget,
         CASE WHEN SUM(conversions) = 0 THEN NULL ELSE (SUM(action_value) / NULLIF(SUM(spend), 0))::FLOAT END AS roas,

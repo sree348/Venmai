@@ -4,9 +4,7 @@ import { runAgentWorkflow } from './services/agent.service.js';
 async function main() {
   console.log('=== TESTING AGENTIC WORKFLOW REACT LOOP ===');
   const prompts = [
-    'Good morning! I want to check my account.',
-    'What was our total spend from April 20 to May 31?',
-    'List campaigns that have frequency above 3.0',
+    'Suggest a budget reallocation and targeting strategy for June across our passenger vehicle campaigns to optimize cost per lead.',
   ];
   const tenantId = 'agency';
 

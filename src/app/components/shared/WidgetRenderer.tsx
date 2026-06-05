@@ -114,12 +114,11 @@ export default function WidgetRenderer({ widget }: WidgetRendererProps) {
     if (k.includes('cpc') || k.includes('cpm')) return formatCpcCpm(val);
     if (k.includes('roas')) return formatRoas(val);
     if (k.includes('ctr')) {
-      if (typeof val === 'number') {
-        // CTR in this codebase is stored/calculated directly as a percentage (e.g. 0.77 for 0.77%),
-        // so we format it directly without multiplying by 100 again to prevent inflated numbers.
-        return `${val.toFixed(2)}%`;
+      const numVal = Number(val);
+      if (!isNaN(numVal)) {
+        return `${numVal.toFixed(2)}%`;
       }
-      return `${val}%`;
+      return val === null || val === undefined ? '—' : `${val}%`;
     }
     if (k.includes('frequency') || k.includes('freq')) {
       return typeof val === 'number' ? val.toFixed(2) : String(val);

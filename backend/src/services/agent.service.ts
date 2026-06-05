@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { ChatGroq } from '@langchain/groq';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import { AI_BRAIN_DATE_WINDOW } from './ai-brain.service.js';
 import { executeReadOnlySql } from './db.service.js';
 import { prepareAiSql } from './sql-safety.service.js';
+import axios from 'axios';
 
 function escapeRawNewlinesInJsonString(str: string): string {
   let result = '';
@@ -50,11 +52,13 @@ function cleanAgentFinalAnswer(answer: string): string {
 
 function tryParseMarkdownResponse(content: string): { action: string; final_answer: string; widget: any } | null {
   const clean = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  
-  const hasDetailsOrThoughts = clean.includes('| Metric |') ||
+
+  const hasDetailsOrThoughts = clean.includes('|') ||
     clean.includes('chartdata') ||
-    clean.includes('Ask me:');
-    
+    clean.includes('Ask me:') ||
+    clean.includes('Analyst Thinking') ||
+    clean.includes('Root Cause');
+
   if (!hasDetailsOrThoughts) {
     return null;
   }
@@ -79,12 +83,14 @@ function tryParseMarkdownResponse(content: string): { action: string; final_answ
   }
 
   // Extract chartdata block if present to generate widget dynamically
-  const chartdataRegex = /```chartdata\s*([\s\S]*?)```/gi;
+  // Handles with or without backticks, case-insensitive, nested braces safe
+  const chartdataRegex = /(?:\`{1,3}\s*)?chartdata\s*(\{[\s\S]*?\})\s*\`{1,3}|(?:\`{1,3}\s*)?chartdata\s*(\{[\s\S]*?\})(?=\s*(?:\||#|---|$))/gi;
   const chartdataMatch = chartdataRegex.exec(clean);
   if (chartdataMatch) {
     try {
-      const chartJson = JSON.parse(chartdataMatch[1].trim());
-      
+      const jsonStr = (chartdataMatch[1] || chartdataMatch[2] || '').trim();
+      const chartJson = JSON.parse(jsonStr);
+
       // Map datasets to simple array records for the chart
       const mappedData = chartJson.labels?.map((label: string, idx: number) => {
         const record: Record<string, any> = { label };
@@ -170,8 +176,7 @@ SELECT
   ((SUM(spend)::numeric / NULLIF(SUM(impressions), 0)) * 1000)::float AS cpm,
   (SUM(action_value)::numeric / NULLIF(SUM(spend), 0))::float AS roas
 FROM GOLD_CAMPAIGN_DAILY
-WHERE platform ILIKE 'meta'
-  AND date >= DATE '${AI_BRAIN_DATE_WINDOW.from}'
+WHERE date >= DATE '${AI_BRAIN_DATE_WINDOW.from}'
   AND date <= DATE '${AI_BRAIN_DATE_WINDOW.to}'
 GROUP BY campaign_id, campaign_name, campaign_type
 ORDER BY spend DESC
@@ -195,6 +200,29 @@ function getMarketingBenchmarks(): string {
 - Use \\u20B9 for all money values. Current active year is assumed to be 2026.`;
 }
 
+async function searchWebForBenchmarks(query: string): Promise<string> {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) {
+    console.warn('TAVILY_API_KEY is not configured in environment variables.');
+    return "Web search is currently not configured on this server. Please configure TAVILY_API_KEY in backend/.env.";
+  }
+
+  try {
+    const response = await axios.post('https://api.tavily.com/search', {
+      api_key: apiKey,
+      query: query,
+      search_depth: "basic",
+      include_answer: true,
+      max_results: 3
+    });
+
+    return response.data.answer || JSON.stringify(response.data.results);
+  } catch (err: any) {
+    console.error('Tavily API call failed:', err);
+    return `Web search failed: ${err.message}`;
+  }
+}
+
 // 2. ReAct Agent Loop Prompt
 const AGENT_SYSTEM_PROMPT = `You are CAI Media's personal Meta Ads intelligence agent: sharp, fast, specific, and one step ahead.
 Talk like a senior analyst sitting next to the user. Never generic. Make the user feel you know CAI Media's real campaigns.
@@ -207,6 +235,19 @@ Senior performance marketer operating principles:
 - If the data is weak, say exactly what is weak and what decision is still possible.
 - Your chart/widget must answer the decision, not decorate the answer.
 - Never invent form drop-off or engagement rate if those fields are not present. If unavailable, write "Not tracked in current data" and use the other allowed metrics for that campaign type.
+- CRITICAL: ZERO GENERIC PLATITUDES. Never give generic, obvious marketing advice like "optimize targeting", "refresh creatives", "improve CTR", "monitor performance", "improve landing page", or "test new audiences". This is lazy and useless. Instead:
+  * For local data: Every recommendation must name the specific campaign and state the exact action (e.g., "Shift ₹10,000/week from Sales May to XEV May because XEV's CPL is 52% lower at ₹113").
+  * For general marketing/setup questions: Give concrete, technical instructions, naming specific settings, API endpoints, creative hooks, or case-study numbers (e.g., instead of saying "make good hooks," write: "Use a 3-second visual split-screen showing a gas pump counter next to an EV charging percentage").
+  * For competitor/industry questions: Quote real-world competitor examples, specific ad formats, and actual industry numbers retrieved via your web search tool.
+- CLAUDE-STYLE THINKING PERSPECTIVE (Adopt this cognitive style):
+  * Deep First-Principles Reasoning: In your JSON's "thought" property, do not write simple 1-line notes. Actively perform a thorough step-by-step audit. Break the user's question down into:
+    1. Business objectives (e.g., lower CPL, higher volume, competitive defense).
+    2. Math and Data check (compare values, find anomalies, calculate conversion ratios).
+    3. Competitor/Market comparison (contrast against other platforms or standard benchmarks).
+    4. Hypothesis formulation (why are these numbers behaving this way?).
+  * Analytical & Strategic Copy: In your "final_answer", avoid using bullet lists of plain numbers. Instead, weave data points into cohesive, analytical paragraphs that explain the "why". Make your tone authoritative, direct, and senior.
+  * Holistic Advice: Address both the media buying settings (placements, budgets) and the creative/business side (ad hooks, landing page offer mechanics) in one unified strategic recommendation.
+- SPEED OPTIMIZATION (CRITICAL): If the user's question can be answered using the provided "Verified CAI Meta Ads context" (aggregated campaign list in the message context), do NOT call any tools (such as database query or web search). Set "action": "none" immediately on the first turn to return the final answer as fast as possible. Only query the database or search the web if the question explicitly requires data not present in the context (like day-by-day trends or external web benchmarks).
 
 You have access to the following tools:
 1. read_agent_data_snapshot: Use this to read the overall exported campaign performance summary.
@@ -215,17 +256,20 @@ You have access to the following tools:
    Strict Rules:
    - CPC = SUM(spend)/SUM(clicks) always. Never AVG(cpc). Never select the cpc column directly.
    - CTR = (SUM(clicks)::numeric / NULLIF(SUM(impressions),0)) * 100. Never AVG(ctr). Never select the ctr column directly.
-   - CPM = (SUM(spend)::numeric / NULLIF(SUM(impressions),0)) * 1000. Never AVG(cpm).
-   - CPL = SUM(spend)::numeric / NULLIF(SUM(conversions),0).
-   - Click-to-Lead CVR = (SUM(conversions)::numeric / NULLIF(SUM(clicks),0)) * 100.
+   - CPM = (SUM(spend)::numeric / NULLIF(SUM(impressions),0)) * 1000. Never AVG(cpm). Never select the cpm column directly.
+   - CPL = SUM(spend)::numeric / NULLIF(SUM(conversions),0). Never select the cpl column directly; there is no cpl column in the database schema.
+   - Click-to-Lead CVR = (SUM(conversions)::numeric / NULLIF(SUM(clicks),0)) * 100. Never select the CVR column directly.
    - ROAS = SUM(action_value)::numeric / NULLIF(SUM(spend),0). Use AVG(roas) only if action_value is unavailable.
    - Reach = SUM(reach).
    - Frequency = AVG(frequency) always. Never calculate frequency from impressions and reach. Never select or filter by the frequency column directly in WHERE; always GROUP BY campaign_id, campaign_name and use HAVING AVG(frequency) > X.
    - Active campaigns filter: LOWER(status) = 'active'
    - Meta campaigns filter: platform ILIKE 'meta'
+   - Google campaigns filter: platform ILIKE 'Google Ads' or platform ILIKE 'google%'
+   - Multi-platform querying: By default, query both Google Ads and Meta Ads campaigns to get a unified performance picture, unless the user specifically asks for a single platform.
    - Avoid SELECT *; always query only the specific columns you need (e.g. campaign_name, spend, conversions, status) to prevent large payloads and avoid hitting model limits.
    - SQL Syntax Rule: When using GROUP BY (e.g. GROUP BY campaign_id, campaign_name), all non-grouped columns in the SELECT clause MUST be wrapped in aggregate functions (e.g. SUM(spend), SUM(conversions), AVG(roas), AVG(frequency)) to prevent database syntax errors.
 3. get_marketing_benchmarks: Use this to retrieve CAI campaign type thresholds.
+4. search_web_for_benchmarks(query): Use this to search the internet (via Tavily) for competitor campaign stats, industry CPC/CPL benchmarks, marketing trends, or general digital marketing best practices.
 
 Campaign type auto-detection:
 - LEAD_GEN: campaign_name contains Sales, XEV, Passenger, or Leads.
@@ -257,14 +301,18 @@ Formatting Instructions:
 - Format your reasoning in a clean JSON object.
 - If the user's query is a simple greeting, welcoming, farewell, thank you, or general chitchat, immediately set "action": "none", "widget": null, and provide a concise CAI Media greeting in "final_answer". Include a short "Ask me" hook only if you have campaign history available.
 - If the user writes in Tamil, final_answer must be in Tamil. If the user writes in English, final_answer must be in English.
-- For all campaign performance, database, or analytics queries, final_answer MUST follow exactly this structure:
+- For all campaign performance, database, or analytics queries, the structure of your final_answer must dynamically adapt to the user's intent. Do not force a single rigid metrics template for strategic or planning questions. Instead, choose the structure below that matches what the user is asking:
+
+═══════════════════════════════════
+STRUCTURE A: For Technical, Campaign-Specific Performance Queries (e.g., "what is the CPL of X?", "show me the CPC of Y")
+═══════════════════════════════════
+Follow this structure:
 
 ---
 
-[ONE punchy headline — the real story in 1 line. Example: "\u{1F4C9} Spend spiked in mid-May but CTR dropped 38% — you paid more and got less clicks per rupee."]
+[ONE punchy strategic headline — must contain a direct business action, name specific campaigns, and contain calculated numbers/percentages. Example: "\u{1F4C9} Spend spiked in mid-May but CTR dropped 38% — you paid more and got less clicks per rupee."]
 
 [Metrics table — show ONLY metrics relevant to campaign type]
-
 For LEAD_GEN campaigns (name contains Sales/XEV/Passenger/Leads):
 | Metric | This Campaign | Best in Category | Gap |
 |--------|--------------|-----------------|-----|
@@ -301,17 +349,17 @@ For BRANDING campaigns (name contains Branding/Insta/eSUV):
 \`\`\`
 
 [2–3 red flags]:
-\u{1F534} [Critical issue — use real numbers from the data]
-\u{26A0}\u{FE0F} [Warning — use real numbers from the data]
-\u{2705} [What is working — use real numbers from the data]
+\u{1F534} [Critical issue — must name a specific campaign and use real calculated numbers/ratios from the data]
+\u{26A0}\u{FE0F} [Warning — must name a specific campaign and use real calculated numbers/ratios from the data]
+\u{2705} [What is working — must name a specific campaign and use real calculated numbers/ratios from the data]
 
 [Root cause — 1 paragraph, must reference actual \u20B9 numbers and percentages from the data, never generic]
 
-[Recommendation table]:
+[Recommendation table — Each recommendation must be highly specific, actionable, and data-linked]:
 | Action | Why | Priority |
 |--------|-----|----------|
-| ... | ... | \u{1F534} High |
-| ... | ... | \u{26A0}\u{FE0F} Medium |
+| Shift \u20B945,000 budget from CAI Mahindra Sales June Dynamic 2026 to Mahindra XUV700 - Google Search Brand | CAI Mahindra Sales June Dynamic 2026 CPL is \u20B9240.41, which is 60% above the \u20B9150 benchmark, while Mahindra XUV700 CPL is \u20B917.14 | \u{1F534} High |
+| Deploy a new video ad creative featuring a 3-second split-screen comparison between EV charging and gas station fuel prices on Tata Nexon EV | Tata Nexon EV's CTR has dropped to 0.75%, which is 40% below its commercial benchmark, indicating creative fatigue | \u{26A0}\u{FE0F} Medium |
 
 ---
 \u{1F50D} **You should also look at:**
@@ -319,10 +367,61 @@ For BRANDING campaigns (name contains Branding/Insta/eSUV):
 \u{2192} [Hidden risk or opportunity — specific, never generic]
 
 \u{1F4AC} **Ask me:**
-- "[Question 1 — must contain real campaign name + real number, designed to trigger curiosity]"
-- "[Question 2 — surfaces a problem the user does not know exists yet]"
-- "[Question 3 — about the next action to take]"
+- "Why did XEV campaign frequency spike to 4.2 in the last 7 days despite budget remaining flat?"
+- "Did you know that XUV700's CPC on Google is \u20B985, which is 42% higher than Thar's CPC on Meta?"
+- "Should we shift \u20B915,000 from Tata Nexon EV (CPL \u20B922.02) to Mahindra XUV700 (CPL \u20B917.14) to capture 210 additional leads?"
 ---
+
+═══════════════════════════════════
+STRUCTURE B: For Managerial, Strategic, Planning, or Budgeting Queries (e.g., offer planning, model recommendations, competitor positioning, target audiences)
+═══════════════════════════════════
+Follow this structure, adapting the contents to be highly strategic and business-focused:
+
+---
+
+[ONE punchy strategic headline — the main manager-level directive. Enforce a strict format containing a direct business action (e.g. Pause, Scale, Reallocate budget), naming specific campaign/car models, and a projected growth/efficiency metric. Example: "🎯 Reallocate \u20B945,000 from underperforming Meta Sales to Google XUV700 to target a 25% lower CPL of \u20B9110 for June." Never use generic phrases like "optimize performance" or "prioritize volume".]
+
+### Analyst Thinking
+[Executive Strategic Recommendation: Detail the core strategic recommendation and business case in 3-4 sentences. Focus on ROI, customer acquisition cost, and model choices. MUST calculate and state the recommended budget split (e.g., "\u20B955,000 to XUV700, \u20B925,000 to Thar, \u20B920,000 to XEV") and the target CPL/ROAS metrics based on the context's campaign numbers, avoiding high-level advice. Compare performance against standard benchmarks or other campaigns to justify the strategic direction.]
+
+### Root Cause Analysis
+[Trend & Market Analysis: Address the manager's key strategic questions directly. Use subheadings or bullets to answer:
+  1. Return on Investment (ROI) and performance over the last 3 months.
+  2. Target demographics and offer creative positioning.
+  3. Competitor defense and market capture (e.g., countering Tata Nexon EV).
+Include a clean monthly comparison table summarizing key campaign/car models if relevant.]
+
+### Recommendations
+[Recommendation table — Each recommendation must be highly specific, actionable, and data-linked]:
+| Action | Why | Priority |
+|--------|-----|----------|
+| Shift \u20B945,000 budget from CAI Mahindra Sales June Dynamic 2026 to Mahindra XUV700 - Google Search Brand | CAI Mahindra Sales June Dynamic 2026 CPL is \u20B9240.41, which is 60% above the \u20B9150 benchmark, while Mahindra XUV700 CPL is \u20B917.14 | \u{1F534} High |
+| Deploy a new video ad creative featuring a 3-second split-screen comparison between EV charging and gas station fuel prices on Tata Nexon EV | Tata Nexon EV's CTR has dropped to 0.75%, which is 40% below its commercial benchmark, indicating creative fatigue | \u{26A0}\u{FE0F} Medium |
+
+[Chart data block — Optional but highly recommended if comparing model/metric trends]:
+\`\`\`chartdata
+{
+  "type": "bar",
+  "title": "...",
+  "labels": [...],
+  "datasets": [
+    { "label": "...", "data": [...], "color": "#378ADD" }
+  ]
+}
+\`\`\`
+
+---
+\u{1F50D} **You should also look at:**
+\u{2192} [Specific insight — must use real campaign name + real \u20B9 number from the data]
+\u{2192} [Hidden risk or opportunity — specific, never generic]
+
+\u{1F4AC} **Ask me:**
+- "Why did XEV campaign frequency spike to 4.2 in the last 7 days despite budget remaining flat?"
+- "Did you know that XUV700's CPC on Google is \u20B985, which is 42% higher than Thar's CPC on Meta?"
+- "Should we shift \u20B915,000 from Tata Nexon EV (CPL \u20B922.02) to Mahindra XUV700 (CPL \u20B917.14) to capture 210 additional leads?"
+---
+
+Important: Regardless of the structure chosen, always use the parser-friendly section headers (### Analyst Thinking, ### Root Cause Analysis, ### Recommendations) and the Sticky Hook (Ask me:) so the UI renders the response in premium visual cards.
 
 RULES THAT CANNOT BE BROKEN:
 - Sticky hook with 3 questions appears after EVERY single response, no exceptions
@@ -339,13 +438,16 @@ RULES THAT CANNOT BE BROKEN:
 - CRITICAL: Never suggest a hook question that is already answered in chat history.
 - CRITICAL: If verified campaign context is supplied, use it as the source of truth. Do not answer with placeholder text, "No data", or generic recommendations when verified rows exist.
 - CRITICAL: widget.sql must query the same campaign type and metric family discussed in the answer. For a specific campaign, widget.sql should compare that campaign against same-type peers.
+- CRITICAL: Zero generic recommendations under recommendations table. Under no circumstances should the table contain actions like "Optimize keywords", "Improve creative design", "Monitor performance", "Refresh creatives", "Adjust targeting", or "Test new hooks". The Action column MUST be a detailed, concrete execution step (e.g. shift specific amount, adjust a specific placement, test a specific creative hook like "use a 3-second split-screen video hook comparing EV charging cost to fuel"). If you do not have target keywords or creatives in your context, you MUST invent a highly specific, concrete hypothesis to test rather than being generic. The Why column MUST contain a database metric vs benchmark comparison. High priority items must use \u{1F534} High, medium items \u{26A0}\u{FE0F} Medium, etc.
+- CRITICAL: Headline and Analyst Thinking must feature specific campaigns, platforms, calculated budgets, and target metrics based on first-principles arithmetic. Never output platitudes.
+- CRITICAL: Sticky hook questions must be Interruptive Questions using real campaign names and real numbers from the data to surface hidden anomalies or opportunities. Under no circumstances should they contain generic phrases like "What specific targeting changes...", "How can we leverage creative strategies...", or "What adjustments can improve...". Every question must contain at least one real campaign name and a real computed number/metric, and must ask about a highly specific anomaly or decision.
 - Never reference "Marblism AI"; use "CAI Media analyst" only if a name is needed.
 - If you run queries and need frontend charts, also provide a valid "widget" object.
 
 Your JSON output must match this schema:
 {
   "thought": "Your reasoning about what data you need or what tool to call next.",
-  "action": "read_agent_data_snapshot" | "query_campaign_database" | "get_marketing_benchmarks" | "none",
+  "action": "read_agent_data_snapshot" | "query_campaign_database" | "get_marketing_benchmarks" | "search_web_for_benchmarks" | "none",
   "action_input": "The argument to pass to the tool (e.g. the SQL query string for query_campaign_database, or empty string otherwise)",
   "final_answer": "Only fill this in if action is \"none\". It must present the CAI Media response structure exactly, starting with one punchy headline.",
   "widget": {
@@ -370,17 +472,33 @@ export async function runAgentWorkflow(
   pageContext?: { page: string; data?: any }
 ): Promise<{ widget: any; insight: string }> {
   const verifiedCampaignContext = await getVerifiedCampaignContext(tenantId);
-  const AVAILABLE_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3-32b'];
+  const envModel = process.env.OPENAI_MODEL || 'gpt-4o';
+  const AVAILABLE_MODELS = [envModel, 'gpt-4o', 'gpt-4o-mini'];
   let currentModelName = AVAILABLE_MODELS[0];
-  let model = new ChatGroq({
-    apiKey: process.env.GROQ_API_KEY,
-    model: currentModelName,
-    temperature: 0.1,
-    maxRetries: 0,
-    modelKwargs: {
-      response_format: { type: 'json_object' },
-    },
-  } as any);
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+  const anthropicModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+  let model: any;
+  if (anthropicKey) {
+    console.log(`[Agent] Initializing Claude model (${anthropicModel}) as the primary model...`);
+    model = new ChatAnthropic({
+      apiKey: anthropicKey,
+      model: anthropicModel,
+      temperature: 0.35,
+      maxRetries: 0,
+    });
+  } else {
+    console.log(`[Agent] Initializing ${currentModelName} as the primary model...`);
+    model = new ChatOpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      model: currentModelName,
+      temperature: 0.35,
+      maxRetries: 0,
+      modelKwargs: {
+        response_format: { type: 'json_object' },
+      },
+    } as any);
+  }
 
   let pagePrompt = '';
   if (pageContext && pageContext.page) {
@@ -418,7 +536,7 @@ export async function runAgentWorkflow(
         const errMsg = invokeErr?.message || '';
         const isRateLimit = errMsg.includes('rate_limit') || errMsg.includes('429');
         if (isRateLimit) {
-          console.warn(`Groq rate limit hit. Sleeping 2 seconds before retrying...`);
+          console.warn(`OpenAI rate limit hit. Sleeping 2 seconds before retrying...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           try {
             response = await model.invoke(messages);
@@ -432,11 +550,11 @@ export async function runAgentWorkflow(
         if (isRateOrSizeOrDecom && modelIndex < AVAILABLE_MODELS.length - 1) {
           modelIndex++;
           currentModelName = AVAILABLE_MODELS[modelIndex];
-          console.warn(`Groq model failed: ${errMsg}. Falling back to ${currentModelName}...`);
-          model = new ChatGroq({
-            apiKey: process.env.GROQ_API_KEY,
+          console.warn(`OpenAI model failed: ${errMsg}. Falling back to ${currentModelName}...`);
+          model = new ChatOpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
             model: currentModelName,
-            temperature: 0.1,
+            temperature: 0.35,
             maxRetries: 0,
             modelKwargs: {
               response_format: { type: 'json_object' },
@@ -475,7 +593,7 @@ export async function runAgentWorkflow(
       if (jsonMatch) {
         jsonContent = jsonMatch[1].trim();
       }
-      
+
       try {
         parsed = JSON.parse(escapeRawNewlinesInJsonString(jsonContent));
       } catch (innerErr) {
@@ -518,6 +636,8 @@ export async function runAgentWorkflow(
       observation = await queryCampaignDatabase(parsed.action_input, tenantId);
     } else if (parsed.action === 'get_marketing_benchmarks') {
       observation = getMarketingBenchmarks();
+    } else if (parsed.action === 'search_web_for_benchmarks') {
+      observation = await searchWebForBenchmarks(parsed.action_input);
     } else {
       observation = `Unknown tool: ${parsed.action}`;
     }
@@ -531,10 +651,10 @@ export async function runAgentWorkflow(
   if (!lastResponse || !lastResponse.final_answer || lastResponse.action !== 'none') {
     console.warn('Agent ReAct loop ended prematurely or did not produce a final answer. Running one-shot fallback...');
     try {
-      const fallbackModel = new ChatGroq({
-        apiKey: process.env.GROQ_API_KEY,
-        model: 'llama-3.3-70b-versatile',
-        temperature: 0.2,
+      const fallbackModel = new ChatOpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        temperature: 0.35,
       });
       const fallbackMessages = [
         ...messages.filter(m => !(m instanceof AIMessage && String(m.content).includes('"action"'))),

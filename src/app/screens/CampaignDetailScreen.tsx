@@ -92,9 +92,9 @@ export default function CampaignDetailScreen() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         {[
           { label: 'Spend', value: `₹${(campaign.spend / 1000).toFixed(1)}k`, sub: `Budget: ₹${(campaign.budget / 1000).toFixed(0)}k`, color: 'text-slate-900' },
-          { label: 'CPC', value: cpc > 0 ? `₹${cpc.toFixed(2)}` : 'N/A', sub: `CTR: ${campaign.ctr}%`, color: 'text-slate-900' },
+          { label: 'CPC', value: cpc > 0 ? `₹${cpc.toFixed(2)}` : 'N/A', sub: `CTR: ${Number(campaign.ctr || 0).toFixed(2)}%`, color: 'text-slate-900' },
           { label: 'Conversions', value: campaign.conv.toLocaleString(), sub: `₹${(campaign.spend / campaign.conv).toFixed(0)} CPA`, color: 'text-slate-900' },
-          { label: 'CTR', value: `${campaign.ctr}%`, sub: `Avg: ${(campaign.ctr - 0.2).toFixed(2)}%`, color: 'text-slate-900' },
+          { label: 'CTR', value: `${Number(campaign.ctr || 0).toFixed(2)}%`, sub: `Avg: ${(Number(campaign.ctr || 0) - 0.2).toFixed(2)}%`, color: 'text-slate-900' },
           { label: 'Impressions', value: `${(campaign.impressions / 1000).toFixed(0)}k`, sub: `${campaign.clicks.toLocaleString()} clicks`, color: 'text-slate-900' },
           { label: 'Frequency', value: `${campaign.frequency || 0}×`, sub: campaign.frequency > 5 ? '⚠ Too high' : 'Healthy', color: campaign.frequency > 5 ? 'text-red-600' : 'text-slate-900' },
         ].map(kpi => (

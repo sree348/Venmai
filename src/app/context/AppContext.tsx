@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { apiService } from '../../services/api.service';
-import { mockCampaigns, mockClients } from '../../services/mock-data';
+import { mockCampaigns, mockClients, parseTargetingFromName } from '../../services/mock-data';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANT CLIENT DATA
@@ -244,12 +244,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const activeClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
 
   // Scope data to selected client (or all)
-  const scopedCampaigns = campaigns.filter(c => {
-    const clientMatch = !selectedClientId || c.clientId === selectedClientId;
-    const statusMatch = campaignFilter === 'all' || c.status === campaignFilter || (campaignFilter === 'at_risk' && c.status === 'warning');
-    const searchMatch = !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.channel.toLowerCase().includes(searchQuery.toLowerCase());
-    return clientMatch && statusMatch && searchMatch;
-  });
+  const scopedCampaigns = useMemo(() => {
+    return campaigns
+      .map((c: any) => {
+        if (c.campaign_target && c.audience_type && c.ad_format && c.product_category) return c;
+        const parsed = parseTargetingFromName(c.name || c.campaignName, c.channel || c.platform);
+        return {
+          ...c,
+          campaign_target: c.campaign_target || parsed.campaign_target,
+          audience_type: c.audience_type || parsed.audience_type,
+          ad_format: c.ad_format || parsed.ad_format,
+          product_category: c.product_category || parsed.product_category,
+        };
+      })
+      .filter((c: any) => {
+        const clientMatch = !selectedClientId || c.clientId === selectedClientId;
+        const statusMatch = campaignFilter === 'all' || c.status === campaignFilter || (campaignFilter === 'at_risk' && c.status === 'warning');
+        
+        const q = searchQuery.toLowerCase();
+        const searchMatch = !searchQuery || 
+          c.name.toLowerCase().includes(q) || 
+          c.channel.toLowerCase().includes(q) ||
+          (c.campaign_target && c.campaign_target.toLowerCase().includes(q)) ||
+          (c.audience_type && c.audience_type.toLowerCase().includes(q)) ||
+          (c.ad_format && c.ad_format.toLowerCase().includes(q)) ||
+          (c.product_category && c.product_category.toLowerCase().includes(q));
+          
+        return clientMatch && statusMatch && searchMatch;
+      });
+  }, [campaigns, selectedClientId, campaignFilter, searchQuery]);
 
   const scopedDashboards = dashboards.filter(d => !selectedClientId || d.clientId === selectedClientId);
 

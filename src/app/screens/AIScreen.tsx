@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 const MetaIcon = () => (
   <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M16.924 5.25a6.496 6.496 0 0 0-4.924 2.278 6.496 6.496 0 0 0-4.924-2.278 6.643 6.643 0 0 0-6.638 6.643c0 3.754 3.036 6.643 6.638 6.643a6.496 6.496 0 0 0 4.924-2.278 6.496 6.496 0 0 0 4.924 2.278 6.643 6.643 0 0 0 6.638-6.643 6.643 6.643 0 0 0-6.638-6.643zm0 11.233a4.594 4.594 0 0 1-3.665-1.848 5.7 5.7 0 0 0 1.059-3.385c0-1.28-.426-2.457-1.127-3.398a4.594 4.594 0 0 1 3.733-1.602 4.643 4.643 0 0 1 4.638 4.643 4.643 4.643 0 0 1-4.638 4.59zm-9.848 0a4.643 4.643 0 0 1-4.638-4.59 4.643 4.643 0 0 1 4.638-4.643 4.594 4.594 0 0 1 3.733 1.602c-.701.941-1.127 2.118-1.127 3.398 0 1.28.36 2.44 1.059 3.385a4.594 4.594 0 0 1-3.665 1.848z"/>
+    <path d="M16.924 5.25a6.496 6.496 0 0 0-4.924 2.278 6.496 6.496 0 0 0-4.924-2.278 6.643 6.643 0 0 0-6.638 6.643c0 3.754 3.036 6.643 6.638 6.643a6.496 6.496 0 0 0 4.924-2.278 6.496 6.496 0 0 0 4.924 2.278 6.643 6.643 0 0 0 6.638-6.643 6.643 6.643 0 0 0-6.638-6.643zm0 11.233a4.594 4.594 0 0 1-3.665-1.848 5.7 5.7 0 0 0 1.059-3.385c0-1.28-.426-2.457-1.127-3.398a4.594 4.594 0 0 1 3.733-1.602 4.643 4.643 0 0 1 4.638 4.643 4.643 4.643 0 0 1-4.638 4.59zm-9.848 0a4.643 4.643 0 0 1-4.638-4.59 4.643 4.643 0 0 1 4.638-4.643 4.594 4.594 0 0 1 3.733 1.602c-.701.941-1.127 2.118-1.127 3.398 0 1.28.36 2.44 1.059 3.385a4.594 4.594 0 0 1-3.665 1.848z" />
   </svg>
 );
 
@@ -108,6 +108,34 @@ function priorityRank(priority: string) {
   return 2;
 }
 
+function getCampaignLink(campaign?: any, targetType: 'adsets' | 'campaigns' = 'adsets') {
+  if (!campaign) {
+    if (targetType === 'campaigns') {
+      return 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&nav_source=no_referrer#';
+    }
+    return 'https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&nav_source=no_referrer';
+  }
+  const platform = String(campaign.platform || campaign.channel || '').toLowerCase();
+  const id = campaign.id || campaign.campaignId || '';
+
+  if (platform.includes('google') || platform.includes('youtube')) {
+    return 'https://ads.google.com/';
+  }
+
+  if (targetType === 'campaigns') {
+    if (id) {
+      return `https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&selected_campaign_ids=${id}&nav_source=no_referrer#`;
+    }
+    return 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1072682920153744&nav_source=no_referrer#';
+  }
+
+  if (id) {
+    return `https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&selected_campaign_ids=${id}&nav_source=no_referrer`;
+  }
+
+  return 'https://adsmanager.facebook.com/adsmanager/manage/adsets?act=1072682920153744&business_id=2236586339959691&columns=name%2Cdelivery%2Crecommendations_guidance%2Cresults%2Ccost_per_result%2Cbudget%2Cspend%2Cimpressions%2Creach%2Cfrequency%2Ccpm%2Cactions%3Alink_click%2Cschedule%2Cend_time%2Cattribution_setting%2Cbid%2Clast_significant_edit%2Cquality_score_organic%2Cquality_score_ectr%2Cquality_score_ecvr%2Ccampaign_name&attribution_windows=default&nav_source=no_referrer';
+}
+
 function getCampaignHealthMetrics(c: any, score: number) {
   // Extract values
   const spend = Number(c.spend || c.amount_spent || 0);
@@ -122,9 +150,13 @@ function getCampaignHealthMetrics(c: any, score: number) {
 
   // 1. Budget Waste: Zero conversions with high spend above ₹5000
   if (conversions === 0 && spend > 5000) {
+    const reasonText = clicks > 0
+      ? `This is driven by a landing page conversion issue: users are actively clicking the ad (${clicks} clicks, ${ctr.toFixed(2)}% CTR), but 0 have converted. Check the landing page layout, form validation, or conversion pixel tracking.`
+      : `This is driven by zero ad engagement: the campaign is generating spend through impressions but has recorded 0 clicks. Check your targeting parameters and rotate ad creative elements immediately.`;
+
     return {
-      topIssue: 'Budget Waste',
-      recommendation: `Zero conversions recorded despite ₹${spend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent. Pause campaign immediately to save budget.`,
+      topIssue: 'Burning Budget',
+      recommendation: `Zero conversions recorded despite ₹${spend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} spent. ${reasonText} Pause campaign immediately to prevent further waste.`,
       priority: 'critical',
       badgeColor: 'bg-rose-500/10 border-rose-500/30 text-rose-500'
     };
@@ -217,7 +249,7 @@ function getCampaignHealthMetrics(c: any, score: number) {
   }
 
   return {
-    topIssue: 'Poor Health',
+    topIssue: 'Low Efficiency',
     recommendation: `Critical health score of ${score}/100. Driven by low CTR (${ctr.toFixed(2)}%) or frequency fatigue (${frequency.toFixed(2)}). Implement budget reallocation.`,
     priority: 'critical',
     badgeColor: 'bg-rose-500/10 border-rose-500/30 text-rose-500'
@@ -308,25 +340,25 @@ function buildSeniorFallbackResponse(prompt: string, campaigns: any[], activeCli
 
   const metricRows = focusType === 'LEAD_GEN'
     ? [
-        ['CPL', focusMetrics.cpl || 0, bestMetrics.cpl || 0, (focusMetrics.cpl || 0) - (bestMetrics.cpl || 0)],
-        ['Total Leads', focusMetrics.conversions || 0, bestMetrics.conversions || 0, (focusMetrics.conversions || 0) - (bestMetrics.conversions || 0)],
-        ['Click-to-Lead CVR', focusMetrics.clickToLeadCvr || 0, bestMetrics.clickToLeadCvr || 0, (focusMetrics.clickToLeadCvr || 0) - (bestMetrics.clickToLeadCvr || 0)],
-        ['Form drop-off', 'Not tracked', 'Not tracked', 'N/A'],
-      ]
+      ['CPL', focusMetrics.cpl || 0, bestMetrics.cpl || 0, (focusMetrics.cpl || 0) - (bestMetrics.cpl || 0)],
+      ['Total Leads', focusMetrics.conversions || 0, bestMetrics.conversions || 0, (focusMetrics.conversions || 0) - (bestMetrics.conversions || 0)],
+      ['Click-to-Lead CVR', focusMetrics.clickToLeadCvr || 0, bestMetrics.clickToLeadCvr || 0, (focusMetrics.clickToLeadCvr || 0) - (bestMetrics.clickToLeadCvr || 0)],
+      ['Form drop-off', 'Not tracked', 'Not tracked', 'N/A'],
+    ]
     : focusType === 'COMMERCIAL'
       ? [
-          ['CTR', focusMetrics.ctr || 0, bestMetrics.ctr || 0, (focusMetrics.ctr || 0) - (bestMetrics.ctr || 0)],
-          ['ROAS', focusMetrics.roas || 0, bestMetrics.roas || 0, (focusMetrics.roas || 0) - (bestMetrics.roas || 0)],
-          ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
-          ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
-          ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
-        ]
+        ['CTR', focusMetrics.ctr || 0, bestMetrics.ctr || 0, (focusMetrics.ctr || 0) - (bestMetrics.ctr || 0)],
+        ['ROAS', focusMetrics.roas || 0, bestMetrics.roas || 0, (focusMetrics.roas || 0) - (bestMetrics.roas || 0)],
+        ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
+        ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
+        ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
+      ]
       : [
-          ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
-          ['Engagement Rate', 'Not tracked', 'Not tracked', 'N/A'],
-          ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
-          ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
-        ];
+        ['CPM', focusMetrics.cpm || 0, bestMetrics.cpm || 0, (focusMetrics.cpm || 0) - (bestMetrics.cpm || 0)],
+        ['Engagement Rate', 'Not tracked', 'Not tracked', 'N/A'],
+        ['Frequency', focusMetrics.frequency || 0, bestMetrics.frequency || 0, (focusMetrics.frequency || 0) - (bestMetrics.frequency || 0)],
+        ['Reach', focusMetrics.reach || 0, bestMetrics.reach || 0, (focusMetrics.reach || 0) - (bestMetrics.reach || 0)],
+      ];
 
   const table = [
     '| Metric | This Campaign | Best in Category | Gap |',
@@ -360,15 +392,15 @@ function buildSeniorFallbackResponse(prompt: string, campaigns: any[], activeCli
 
   const redFlags = focusType === 'LEAD_GEN'
     ? [
-        `🔴 critical ${focus.name}: CPL is ${formatInr(focusMetrics.cpl || 0)}, while ${best.name} is at ${formatInr(bestMetrics.cpl || 0)} in the same LEAD_GEN category.`,
-        `⚠️ warning ${focus.name}: click-to-lead CVR is ${Number(focusMetrics.clickToLeadCvr || 0).toFixed(2)}%, so clicks are not converting into lead volume efficiently.`,
-        `✅ good ${best.name}: ${Number(bestMetrics.conversions || 0).toLocaleString('en-IN')} leads gives us a cleaner benchmark to copy.`,
-      ]
+      `🔴 critical ${focus.name}: CPL is ${formatInr(focusMetrics.cpl || 0)}, while ${best.name} is at ${formatInr(bestMetrics.cpl || 0)} in the same LEAD_GEN category.`,
+      `⚠️ warning ${focus.name}: click-to-lead CVR is ${Number(focusMetrics.clickToLeadCvr || 0).toFixed(2)}%, so clicks are not converting into lead volume efficiently.`,
+      `✅ good ${best.name}: ${Number(bestMetrics.conversions || 0).toLocaleString('en-IN')} leads gives us a cleaner benchmark to copy.`,
+    ]
     : [
-        `🔴 critical ${focus.name}: CPM is ${formatInr(focusMetrics.cpm || 0)}, above the strongest same-type peer at ${formatInr(bestMetrics.cpm || 0)}.`,
-        `⚠️ warning ${focus.name}: frequency is ${Number(focusMetrics.frequency || 0).toFixed(2)}, so creative fatigue may be inflating delivery cost.`,
-        `✅ good ${best.name}: this is the same-category benchmark to study before moving budget.`,
-      ];
+      `🔴 critical ${focus.name}: CPM is ${formatInr(focusMetrics.cpm || 0)}, above the strongest same-type peer at ${formatInr(bestMetrics.cpm || 0)}.`,
+      `⚠️ warning ${focus.name}: frequency is ${Number(focusMetrics.frequency || 0).toFixed(2)}, so creative fatigue may be inflating delivery cost.`,
+      `✅ good ${best.name}: this is the same-category benchmark to study before moving budget.`,
+    ];
 
   const rootCause = focusType === 'LEAD_GEN'
     ? `${focus.name} is not just expensive; it is leaking efficiency between click and lead. The spend is ${formatInr(focusMetrics.spend || 0)}, clicks are ${Number(focusMetrics.clicks || 0).toLocaleString('en-IN')}, and leads are ${Number(focusMetrics.conversions || 0).toLocaleString('en-IN')}, which points to offer, form friction, or audience intent mismatch rather than only media buying.`
@@ -547,7 +579,7 @@ export function parseMessageContent(content: string): ParsedOutput {
     const headingMatch = trimmed.match(/^(?:###|##|#)\s*(.*)$/);
     if (headingMatch) {
       const headingText = headingMatch[1].trim().toLowerCase();
-      
+
       // Clean emoji from heading
       const cleanHeading = headingText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^\w\s]/g, '').trim();
 
@@ -668,7 +700,7 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
   if (!isStructured) {
     return (
       <p className="break-words whitespace-pre-line">
-        {content.split('**').map((part: string, idx: number) => 
+        {content.split('**').map((part: string, idx: number) =>
           idx % 2 === 0 ? part : <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">{part}</strong>
         )}
       </p>
@@ -724,12 +756,12 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
                         const cleanCell = cell.replace(/[🔴⚠️✅]/g, '').trim();
                         const isNegative = cleanCell.startsWith('-');
                         const isPositive = cleanCell.startsWith('+');
-                        
+
                         const metricName = row[0]?.toLowerCase() || '';
                         const isCostMetric = metricName.includes('cpl') || metricName.includes('cpc') || metricName.includes('cpm') || metricName.includes('spend');
-                        
+
                         const isGood = isCostMetric ? isNegative : isPositive;
-                        
+
                         if (cell.includes('🔴') || cell.includes('⚠️') || cell.includes('✅')) {
                           // normal render
                         } else {
@@ -842,9 +874,9 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
               return (
                 <div key={idx} className="flex gap-3 items-start bg-white/80 hover:bg-white p-3.5 rounded-xl border border-slate-200 transition-all shadow-sm hover:shadow-md">
                   <div className="pt-0.5 shrink-0">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 size-3.5 cursor-pointer" 
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500 size-3.5 cursor-pointer"
                       id={`rec-${idx}`}
                       defaultChecked={false}
                     />
@@ -1102,16 +1134,16 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
 
     const insightLines = wasteCampaigns.length
       ? [
-          `I found ${wasteCampaigns.length} budget-wasting campaign${wasteCampaigns.length === 1 ? '' : 's'} (defined as zero conversions with spend > ${formatInr(BENCHMARKS.wasteSpend)})${activeClientName ? ` for ${activeClientName}` : ''}:`,
-          ...wasteCampaigns.map((item: any) =>
-            `- **${item.campaign_name}**: spent ${formatInr(item.spend)} with zero conversions. Action: ${item.recommended_action}`
-          ),
-          'These campaigns represent an immediate budget saving opportunity if paused.'
-        ]
+        `I found ${wasteCampaigns.length} budget-wasting campaign${wasteCampaigns.length === 1 ? '' : 's'} (defined as zero conversions with spend > ${formatInr(BENCHMARKS.wasteSpend)})${activeClientName ? ` for ${activeClientName}` : ''}:`,
+        ...wasteCampaigns.map((item: any) =>
+          `- **${item.campaign_name}**: spent ${formatInr(item.spend)} with zero conversions. Action: ${item.recommended_action}`
+        ),
+        'These campaigns represent an immediate budget saving opportunity if paused.'
+      ]
       : [
-          `No campaigns are currently wasting budget (defined as zero conversions with spend > ${formatInr(BENCHMARKS.wasteSpend)})${activeClientName ? ` for ${activeClientName}` : ''}.`,
-          'All active campaigns with significant spend have recorded at least one conversion. Keep monitoring CTR and CPC.'
-        ];
+        `No campaigns are currently wasting budget (defined as zero conversions with spend > ${formatInr(BENCHMARKS.wasteSpend)})${activeClientName ? ` for ${activeClientName}` : ''}.`,
+        'All active campaigns with significant spend have recorded at least one conversion. Keep monitoring CTR and CPC.'
+      ];
 
     return {
       widget: {
@@ -1173,14 +1205,14 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
 
     const insightLines = pauseCampaigns.length
       ? [
-          `Based on local campaign data, here are ${pauseCampaigns.length} campaign${pauseCampaigns.length === 1 ? '' : 's'} recommended for pause or audit${activeClientName ? ` for ${activeClientName}` : ''}:`,
-          ...pauseCampaigns.map((item: any) =>
-            `- **${item.campaign_name}**: ${item.reason}. Action: ${item.recommended_action}`
-          )
-        ]
+        `Based on local campaign data, here are ${pauseCampaigns.length} campaign${pauseCampaigns.length === 1 ? '' : 's'} recommended for pause or audit${activeClientName ? ` for ${activeClientName}` : ''}:`,
+        ...pauseCampaigns.map((item: any) =>
+          `- **${item.campaign_name}**: ${item.reason}. Action: ${item.recommended_action}`
+        )
+      ]
       : [
-          `No campaigns are currently recommended for pause according to local rules (CPC > ₹80, frequency > 4.0, or zero conversions with spend > ₹5,000)${activeClientName ? ` for ${activeClientName}` : ''}.`
-        ];
+        `No campaigns are currently recommended for pause according to local rules (CPC > ₹80, frequency > 4.0, or zero conversions with spend > ₹5,000)${activeClientName ? ` for ${activeClientName}` : ''}.`
+      ];
 
     return {
       widget: {
@@ -1220,14 +1252,14 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
     const worst = cpcCampaigns.filter(row => row.cpc > BENCHMARKS.cpcCritical);
     const insightLines = cpcCampaigns.length
       ? [
-          `Here is the CPC breakdown for campaigns${activeClientName ? ` under ${activeClientName}` : ''}:`,
-          ...cpcCampaigns.slice(0, 5).map((item: any) =>
-            `- **${item.campaign_name}**: CPC of ${formatInr(item.cpc)} (spend: ${formatInr(item.spend)}, clicks: ${item.clicks}).`
-          ),
-          worst.length > 0
-            ? `There are ${worst.length} campaign(s) exceeding the critical India CPC benchmark of ${formatInr(BENCHMARKS.cpcCritical)}.`
-            : 'All campaigns have CPC values below the critical benchmark.'
-        ]
+        `Here is the CPC breakdown for campaigns${activeClientName ? ` under ${activeClientName}` : ''}:`,
+        ...cpcCampaigns.slice(0, 5).map((item: any) =>
+          `- **${item.campaign_name}**: CPC of ${formatInr(item.cpc)} (spend: ${formatInr(item.spend)}, clicks: ${item.clicks}).`
+        ),
+        worst.length > 0
+          ? `There are ${worst.length} campaign(s) exceeding the critical India CPC benchmark of ${formatInr(BENCHMARKS.cpcCritical)}.`
+          : 'All campaigns have CPC values below the critical benchmark.'
+      ]
       : ['No campaign click data is currently available.'];
 
     return {
@@ -1278,15 +1310,15 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
     const scalable = scaleCampaigns.filter(row => row.scaleSignal);
     const insightLines = scalable.length
       ? [
-          `I found ${scalable.length} campaign${scalable.length === 1 ? '' : 's'} with scale signals (ROAS >= ${BENCHMARKS.roasScale}x or CTR >= 2.0%)${activeClientName ? ` for ${activeClientName}` : ''}:`,
-          ...scalable.map((item: any) =>
-            `- **${item.campaign_name}**: ${item.reason} (conversions: ${item.conversions}). Action: ${item.recommended_action}`
-          )
-        ]
+        `I found ${scalable.length} campaign${scalable.length === 1 ? '' : 's'} with scale signals (ROAS >= ${BENCHMARKS.roasScale}x or CTR >= 2.0%)${activeClientName ? ` for ${activeClientName}` : ''}:`,
+        ...scalable.map((item: any) =>
+          `- **${item.campaign_name}**: ${item.reason} (conversions: ${item.conversions}). Action: ${item.recommended_action}`
+        )
+      ]
       : [
-          `No campaigns are showing strong scale signals (ROAS >= ${BENCHMARKS.roasScale}x or CTR >= 2.0%)${activeClientName ? ` for ${activeClientName}` : ''}.`,
-          'Focus on improving underperforming campaigns before scaling.'
-        ];
+        `No campaigns are showing strong scale signals (ROAS >= ${BENCHMARKS.roasScale}x or CTR >= 2.0%)${activeClientName ? ` for ${activeClientName}` : ''}.`,
+        'Focus on improving underperforming campaigns before scaling.'
+      ];
 
     return {
       widget: {
@@ -1310,40 +1342,40 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
     const actionable = freqCampaigns.length
       ? freqCampaigns
       : campaigns
-          .map((campaign: any) => ({ ...campaign, ...getCampaignMetrics(campaign) }))
-          .filter((campaign: any) => Number(campaign.frequency || 0) > 3)
-          .map((campaign: any) => ({
-            campaign_name: campaign.name || campaign.campaignName,
-            platform: campaign.platform || campaign.channel || 'Meta',
-            spend: campaign.spend,
-            clicks: campaign.clicks,
-            impressions: campaign.impressions,
-            conversions: campaign.conversions,
-            frequency: campaign.frequency,
-            cpc: campaign.cpc,
-            ctr: campaign.ctr,
-            roas: campaign.roas || null,
-            status: campaign.status,
-            recommended_action:
-              campaign.frequency >= 4
-                ? 'Pause now, rotate creatives, and cap frequency.'
-                : 'Refresh creative and narrow audience before performance drops.',
-          }));
+        .map((campaign: any) => ({ ...campaign, ...getCampaignMetrics(campaign) }))
+        .filter((campaign: any) => Number(campaign.frequency || 0) > 3)
+        .map((campaign: any) => ({
+          campaign_name: campaign.name || campaign.campaignName,
+          platform: campaign.platform || campaign.channel || 'Meta',
+          spend: campaign.spend,
+          clicks: campaign.clicks,
+          impressions: campaign.impressions,
+          conversions: campaign.conversions,
+          frequency: campaign.frequency,
+          cpc: campaign.cpc,
+          ctr: campaign.ctr,
+          roas: campaign.roas || null,
+          status: campaign.status,
+          recommended_action:
+            campaign.frequency >= 4
+              ? 'Pause now, rotate creatives, and cap frequency.'
+              : 'Refresh creative and narrow audience before performance drops.',
+        }));
 
     const insightLines = actionable.length
       ? [
-          `I found ${actionable.length} campaign${actionable.length === 1 ? '' : 's'} with frequency above ${threshold.toFixed(1)}${activeClientName ? ` for ${activeClientName}` : ''}.`,
-          ...actionable.slice(0, 6).map((item: any) =>
-            `- ${item.campaign_name}: frequency ${Number(item.frequency).toFixed(2)}, spend ${formatInr(item.spend)}, action: ${item.recommended_action}`
-          ),
-          threshold >= 4
-            ? 'Campaigns above 4.0 frequency should be paused or aggressively refreshed now.'
-            : 'Campaigns above 3.0 frequency should have creatives refreshed and audience fatigue monitored.'
-        ]
+        `I found ${actionable.length} campaign${actionable.length === 1 ? '' : 's'} with frequency above ${threshold.toFixed(1)}${activeClientName ? ` for ${activeClientName}` : ''}.`,
+        ...actionable.slice(0, 6).map((item: any) =>
+          `- ${item.campaign_name}: frequency ${Number(item.frequency).toFixed(2)}, spend ${formatInr(item.spend)}, action: ${item.recommended_action}`
+        ),
+        threshold >= 4
+          ? 'Campaigns above 4.0 frequency should be paused or aggressively refreshed now.'
+          : 'Campaigns above 3.0 frequency should have creatives refreshed and audience fatigue monitored.'
+      ]
       : [
-          `No campaigns are above ${threshold.toFixed(1)} frequency right now.${activeClientName ? ` This is within ${activeClientName}'s current scope.` : ''}`,
-          'Keep monitoring frequency after the next sync, especially if spend accelerates.'
-        ];
+        `No campaigns are above ${threshold.toFixed(1)} frequency right now.${activeClientName ? ` This is within ${activeClientName}'s current scope.` : ''}`,
+        'Keep monitoring frequency after the next sync, especially if spend accelerates.'
+      ];
 
     return {
       widget: {
@@ -1384,7 +1416,7 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
         chart_type: 'kpi_card',
         title: 'Agency Performance Summary',
         data: [
-          { label: 'Total Spend', value: `₹${(totalSpend/1000).toFixed(1)}k` },
+          { label: 'Total Spend', value: `₹${(totalSpend / 1000).toFixed(1)}k` },
           { label: 'Total Conversions', value: totalConversions },
           { label: 'Avg CPC', value: `₹${avgCpc.toFixed(2)}` }
         ],
@@ -1624,14 +1656,19 @@ export default function AIScreen() {
       return sum + fallback;
     }, 0) / filteredCampaigns.length)
     : 0;
-  const actionQueue = mergedInsights.slice(0, 5).map((insight, index) => ({
-    id: insight.id || `${insight.campaignName}-${index}`,
-    priority: insight.priority,
-    campaignName: insight.campaignName,
-    action: insight.suggestedAction,
-    metric: insight.metric,
-    expectedImpact: insight.expectedImpact || 'Improve campaign efficiency',
-  }));
+  const actionQueue = mergedInsights.slice(0, 5).map((insight, index) => {
+    const campaignObj = campaigns.find((c: any) => c.name === insight.campaignName || c.campaignName === insight.campaignName);
+    const platform = campaignObj?.platform || campaignObj?.channel || 'Meta';
+    return {
+      id: insight.id || `${insight.campaignName}-${index}`,
+      priority: insight.priority,
+      campaignName: insight.campaignName,
+      action: insight.suggestedAction,
+      metric: insight.metric,
+      expectedImpact: insight.expectedImpact || 'Improve campaign efficiency',
+      platform,
+    };
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -1770,7 +1807,7 @@ export default function AIScreen() {
       const activeIdx = sessions.findIndex(s => s.id === activeSessionId);
       if (activeIdx !== -1) {
         const session = sessions[activeIdx];
-        
+
         // Auto-naming: rename if title is default 'New Chat' and there are user messages
         let nextTitle = session.title;
         if (session.title === 'New Chat' || session.title === 'Untitled Chat') {
@@ -1781,7 +1818,7 @@ export default function AIScreen() {
           }
         }
 
-        const updatedSessions = sessions.map((s, idx) => 
+        const updatedSessions = sessions.map((s, idx) =>
           idx === activeIdx ? { ...s, title: nextTitle, messages } : s
         );
 
@@ -1872,7 +1909,7 @@ export default function AIScreen() {
       });
 
       setIsTyping(false);
-      
+
       const assistantMsg = {
         role: 'assistant',
         content: response.insight || 'Here is the requested data:',
@@ -1902,9 +1939,9 @@ export default function AIScreen() {
         widget: fallback.widget,
         createdAt: new Date().toISOString(),
       }]);
-      
+
       const isNetworkError = !error?.message?.includes('API request failed');
-      
+
       if (isNetworkError) {
         toast.warning('Offline Fallback Mode', {
           description: 'The backend analytics server is currently unavailable. Displaying high-precision local campaign intelligence fallback.',
@@ -1921,7 +1958,7 @@ export default function AIScreen() {
   // Clear Chat History Handler
   const handleClearHistory = async () => {
     if (!window.confirm('Are you sure you want to clear all conversation threads?')) return;
-    
+
     try {
       await apiService.clearChatHistory(tenantId);
       localStorage.removeItem(`marketiq.chats.${tenantId}`);
@@ -1944,7 +1981,7 @@ export default function AIScreen() {
     return (
       <PageWrapper>
         <div className="flex-1 overflow-y-auto px-1 flex flex-col font-sans max-w-7xl mx-auto w-full space-y-6 pb-8 select-none">
-          
+
           {/* Header Block */}
           <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -1982,22 +2019,20 @@ export default function AIScreen() {
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl w-fit shadow-sm">
             <button
               onClick={() => setAiPlatformFilter('meta')}
-              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
-                aiPlatformFilter === 'meta'
+              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${aiPlatformFilter === 'meta'
                   ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
-              }`}
+                }`}
             >
               <MetaIcon />
               Meta Ads Strategy
             </button>
             <button
               onClick={() => setAiPlatformFilter('google')}
-              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${
-                aiPlatformFilter === 'google'
+              className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${aiPlatformFilter === 'google'
                   ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
-              }`}
+                }`}
             >
               <GoogleAdsIcon />
               Google Ads Strategy
@@ -2005,69 +2040,81 @@ export default function AIScreen() {
           </div>
 
           {/* Top Stats Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Budget at risk</div>
-            <div className="mt-1 font-display text-lg font-bold text-foreground">{formatInr(budgetAtRisk)}</div>
-            <div className="text-[10px] text-muted-foreground">Zero‑conversion spend</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Critical fixes</div>
-            <div className="mt-1 font-display text-lg font-bold text-rose-600">{criticalInsights.length}</div>
-            <div className="text-[10px] text-muted-foreground">Pause or audit now</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Scale opportunity</div>
-            <div className="mt-1 font-display text-lg font-bold text-foreground">{formatInr(scaleOpportunity)}</div>
-            <div className="text-[10px] text-muted-foreground">High‑CTR spend</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Avg health</div>
-            <div className="mt-1 font-display text-lg font-bold text-foreground">{avgHealthScore}/100</div>
-            <div className="text-[10px] text-muted-foreground">Portfolio score</div>
-          </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Action queue</div>
-            <div className="mt-1 font-display text-lg font-bold text-foreground">{actionQueue.length}</div>
-            <div className="text-[10px] text-muted-foreground">{warningInsights.length} watch items</div>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-border bg-card shadow-sm p-5">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Recommended Action Queue</h2>
-              <p className="text-xs text-muted-foreground">Prioritized next actions for the performance marketer to review today</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
+              <div className="text-xs font-extrabold uppercase text-muted-foreground">Budget at risk</div>
+              <div className="mt-1 font-display text-lg font-bold text-foreground">{formatInr(budgetAtRisk)}</div>
+              <div className="text-[10px] text-muted-foreground">Zero‑conversion spend</div>
             </div>
-            <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-              Rule-backed + AI
-            </span>
-          </div>
-          {actionQueue.length === 0 ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
-              No urgent actions in the current campaign set. Keep monitoring CPC, frequency, ROAS, and zero-conversion spend after the next sync.
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
+              <div className="text-xs font-extrabold uppercase text-muted-foreground">Critical fixes</div>
+              <div className="mt-1 font-display text-lg font-bold text-rose-600">{criticalInsights.length}</div>
+              <div className="text-[10px] text-muted-foreground">Pause or audit now</div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-              {actionQueue.map(item => (
-                <div key={item.id} className="rounded-xl border border-border bg-muted/10 p-3">
-                  <div className={`mb-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase ${
-                    item.priority === 'critical'
-                      ? 'border-rose-200 bg-rose-50 text-rose-700'
-                      : item.priority === 'warning'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  }`}>
-                    {item.priority}
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
+              <div className="text-xs font-extrabold uppercase text-muted-foreground">Scale opportunity</div>
+              <div className="mt-1 font-display text-lg font-bold text-foreground">{formatInr(scaleOpportunity)}</div>
+              <div className="text-[10px] text-muted-foreground">High‑CTR spend</div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
+              <div className="text-xs font-extrabold uppercase text-muted-foreground">Avg health</div>
+              <div className="mt-1 font-display text-lg font-bold text-foreground">{avgHealthScore}/100</div>
+              <div className="text-[10px] text-muted-foreground">Portfolio score</div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex flex-col">
+              <div className="text-xs font-extrabold uppercase text-muted-foreground">Action queue</div>
+              <div className="mt-1 font-display text-lg font-bold text-foreground">{actionQueue.length}</div>
+              <div className="text-[10px] text-muted-foreground">{warningInsights.length} watch items</div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-card shadow-sm p-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Recommended Action Queue</h2>
+                <p className="text-xs text-muted-foreground">Prioritized next actions for the performance marketer to review today</p>
+              </div>
+              <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                Rule-backed + AI
+              </span>
+            </div>
+            {actionQueue.length === 0 ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+                No urgent actions in the current campaign set. Keep monitoring CPC, frequency, ROAS, and zero-conversion spend after the next sync.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                {actionQueue.map(item => (
+                  <div key={item.id} className="rounded-xl border border-border bg-muted/10 p-3">
+                    <div className={`mb-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase ${item.priority === 'critical'
+                        ? 'border-rose-200 bg-rose-50 text-rose-700'
+                        : item.priority === 'warning'
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}>
+                      {item.priority}
+                    </div>
+                    <a
+                      href={getCampaignLink(campaigns.find((c: any) => c.name === item.campaignName || c.campaignName === item.campaignName), 'adsets')}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        const campObj = campaigns.find((c: any) => c.name === item.campaignName || c.campaignName === item.campaignName);
+                        window.open(getCampaignLink(campObj, 'campaigns'), '_blank');
+                      }}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold text-foreground line-clamp-2 hover:text-indigo-650 hover:underline transition-colors cursor-pointer"
+                      title={`Left-click: View Adsets on Meta | Right-click: View Campaigns on Meta`}
+                    >
+                      {item.campaignName}
+                    </a>
+                    <p className="mt-2 text-xs text-slate-600 leading-relaxed">{item.action}</p>
+                    <p className="mt-2 text-[10px] font-semibold text-muted-foreground">{item.metric} - {item.expectedImpact}</p>
                   </div>
-                  <p className="text-xs font-bold text-foreground line-clamp-2" title={item.campaignName}>{item.campaignName}</p>
-                  <p className="mt-2 text-xs text-slate-600 leading-relaxed">{item.action}</p>
-                  <p className="mt-2 text-[10px] font-semibold text-muted-foreground">{item.metric} - {item.expectedImpact}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {/* Campaign Health Section */}
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Campaign Health Section */}
           <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
             <div className="flex items-center justify-between mb-4 border-b border-border/60 pb-3">
               <div>
@@ -2103,7 +2150,7 @@ export default function AIScreen() {
                   <tbody className="divide-y divide-border/60">
                     {filteredCampaigns.map((c: any) => {
                       const dbScore = brainScores.find(bs => bs.campaignName === c.name || bs.campaignName === c.campaignName);
-                      
+
                       const spend = Number(c.spend || c.amount_spent || 0);
                       const clicks = Number(c.clicks || 0);
                       const impressions = Number(c.impressions || 0);
@@ -2116,18 +2163,18 @@ export default function AIScreen() {
                       const cpcTerm = cpc > 0 ? (1 / cpc) * 20 : 0;
                       const rawScore = (roas * 25) + (ctr * 15) + cpcTerm - (frequency * 10);
                       const fallbackScore = Math.max(0, Math.min(100, Math.round(rawScore)));
-                      
+
                       const score = dbScore ? dbScore.score : fallbackScore;
                       const trend = dbScore ? dbScore.trend : 'stable';
-                      
+
                       const healthInfo = getCampaignHealthMetrics(c, score);
 
-                      
+
                       const radius = 14;
                       const strokeWidth = 3.5;
                       const circumference = 2 * Math.PI * radius;
                       const strokeDashoffset = circumference - (score / 100) * circumference;
-                      
+
                       let strokeColorClass = 'text-emerald-500';
                       if (score < 40) strokeColorClass = 'text-rose-500';
                       else if (score < 70) strokeColorClass = 'text-amber-500';
@@ -2135,9 +2182,19 @@ export default function AIScreen() {
                       return (
                         <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                           <td className="py-3.5 px-2">
-                            <div className="font-bold text-[13px] leading-[1.3] text-foreground break-words" title={c.name}>
+                            <a
+                              href={getCampaignLink(c, 'adsets')}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                window.open(getCampaignLink(c, 'campaigns'), '_blank');
+                              }}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-[13px] leading-[1.3] text-foreground hover:text-indigo-650 hover:underline transition-colors break-words block cursor-pointer"
+                              title={`Left-click: View Adsets on Meta | Right-click: View Campaigns on Meta`}
+                            >
                               {c.name}
-                            </div>
+                            </a>
                             <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                               <span className="px-1.5 py-0.2 bg-secondary rounded font-medium">{c.platform || 'Meta'}</span>
                               <span>Spend: {formatInr(spend)}</span>
@@ -2285,9 +2342,20 @@ export default function AIScreen() {
                         </div>
 
                         {/* Campaign tag */}
-                        <div className="text-[10px] font-bold text-muted-foreground mt-2 inline-block px-2 py-0.5 rounded bg-secondary">
+                        <a
+                          href={getCampaignLink(campaigns.find((c: any) => c.name === insight.campaignName || c.campaignName === insight.campaignName), 'adsets')}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            const campObj = campaigns.find((c: any) => c.name === insight.campaignName || c.campaignName === insight.campaignName);
+                            window.open(getCampaignLink(campObj, 'campaigns'), '_blank');
+                          }}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-muted-foreground mt-2 inline-block px-2 py-0.5 rounded bg-secondary hover:text-indigo-650 hover:bg-secondary/80 transition-colors cursor-pointer"
+                          title={`Left-click: View Adsets on Meta | Right-click: View Campaigns on Meta`}
+                        >
                           Campaign: {insight.campaignName}
-                        </div>
+                        </a>
 
                         <div className="mt-3 grid grid-cols-3 gap-2">
                           <div className="rounded-lg border border-border bg-white/50 p-2">
@@ -2344,7 +2412,7 @@ export default function AIScreen() {
       <div className="h-[calc(100vh-6.5rem)] flex font-sans max-w-7xl mx-auto w-full select-none border border-slate-200 bg-white rounded-3xl shadow-sm overflow-hidden" style={{
         background: 'radial-gradient(100% 100% at 50% 0%, rgba(99, 102, 241, 0.01) 0%, rgba(255, 255, 255, 0) 100%)'
       }}>
-        
+
         {/* Chat History Left Sidebar (like Claude/ChatGPT/Gemini) */}
         <div className="w-64 bg-slate-50/70 border-r border-slate-200/80 flex flex-col h-full flex-shrink-0 hidden md:flex overflow-hidden">
           {/* New Chat Button */}
@@ -2375,11 +2443,10 @@ export default function AIScreen() {
                         setActiveSessionId(s.id);
                       }
                     }}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-[11px] cursor-pointer transition-all ${
-                      isActive 
-                        ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-2 border-indigo-500' 
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-[11px] cursor-pointer transition-all ${isActive
+                        ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-2 border-indigo-500'
                         : 'text-slate-650 hover:bg-slate-200/40 hover:text-slate-800'
-                    }`}
+                      }`}
                   >
                     {isEditing ? (
                       <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
@@ -2438,7 +2505,7 @@ export default function AIScreen() {
 
         {/* Right Canvas: Conversational area */}
         <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-white/30 backdrop-blur-md">
-          
+
           {/* Title Header Block - Styled like Claude/Gemini bar */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 px-4 sm:px-6 pt-4">
             <div className="flex items-center gap-3">
@@ -2466,11 +2533,10 @@ export default function AIScreen() {
           {/* Sleek collapsable Workspace health panel */}
           <div className="flex-shrink-0 px-4 sm:px-6 mb-3">
             <div className="max-w-4xl mx-auto w-full">
-              <div className={`border rounded-2xl transition-all duration-300 shadow-sm overflow-hidden bg-white/70 backdrop-blur-md ${
-                showHealthBrief 
-                  ? 'border-slate-200 p-4 bg-slate-50/20' 
+              <div className={`border rounded-2xl transition-all duration-300 shadow-sm overflow-hidden bg-white/70 backdrop-blur-md ${showHealthBrief
+                  ? 'border-slate-200 p-4 bg-slate-50/20'
                   : 'border-slate-150/70 py-2.5 px-4 flex items-center justify-between hover:border-indigo-500/30'
-              }`}>
+                }`}>
                 {!showHealthBrief ? (
                   <>
                     <div className="flex items-center gap-3">
@@ -2482,7 +2548,7 @@ export default function AIScreen() {
                         <span className="ml-2 text-[10px] text-slate-400 font-semibold hidden sm:inline">CPC benchmarks, budget waste, scale opportunities</span>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setShowHealthBrief(true)}
                       className="flex items-center gap-1 text-[11px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-xl border-0 cursor-pointer transition-colors"
                     >
@@ -2496,7 +2562,7 @@ export default function AIScreen() {
                         <Cpu className="size-4.5 text-indigo-600" />
                         <h3 className="text-xs font-bold text-slate-800">Workspace Performance Briefs</h3>
                       </div>
-                      <button 
+                      <button
                         onClick={() => setShowHealthBrief(false)}
                         className="flex items-center gap-1 text-[11px] font-extrabold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-xl border-0 cursor-pointer transition-colors"
                       >
@@ -2561,22 +2627,20 @@ export default function AIScreen() {
                         className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}
                       >
                         {/* Avatar */}
-                        <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm font-bold text-xs ${
-                          isUser 
-                            ? 'bg-slate-100 border border-slate-200 text-slate-700' 
+                        <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm font-bold text-xs ${isUser
+                            ? 'bg-slate-100 border border-slate-200 text-slate-700'
                             : 'bg-gradient-to-tr from-violet-600 via-indigo-650 to-pink-500 text-white shadow-glow relative'
-                        }`}>
+                          }`}>
                           {!isUser && <div className="absolute inset-0 bg-indigo-500/10 blur-sm rounded-xl animate-pulse" />}
                           {isUser ? 'PM' : <Sparkles className="size-4 relative z-10" />}
                         </div>
 
                         {/* Content Bubble */}
                         <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} w-full`}>
-                          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                            isUser 
-                              ? 'bg-slate-100 text-slate-800 border border-slate-200/60 rounded-tr-none shadow-sm text-justify font-medium' 
+                          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser
+                              ? 'bg-slate-100 text-slate-800 border border-slate-200/60 rounded-tr-none shadow-sm text-justify font-medium'
                               : 'text-slate-850 font-normal leading-relaxed text-justify pr-2 w-full'
-                          }`}>
+                            }`}>
                             {isUser ? (
                               <p className="break-words">{msg.content}</p>
                             ) : (
@@ -2588,7 +2652,7 @@ export default function AIScreen() {
                           {!isUser && msg.widget && (
                             <div className="w-full mt-2 min-w-[320px] max-w-full rounded-2xl border border-slate-150 bg-slate-50/40 p-4 shadow-sm space-y-3 animate-fade-in">
                               <WidgetRenderer widget={msg.widget} />
-                              
+
                               {/* Actions bar for the chart */}
                               <div className="flex items-center gap-2 pt-2 border-t border-slate-200/50 justify-end select-none">
                                 <button
@@ -2608,7 +2672,7 @@ export default function AIScreen() {
                               </div>
                             </div>
                           )}
-                          
+
                           <span className="text-[9px] text-slate-400 font-medium select-none ml-1">
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -2633,8 +2697,8 @@ export default function AIScreen() {
                   {/* Hero Heading */}
                   <div className="space-y-3">
                     <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 via-indigo-600 to-pink-500 bg-clip-text text-transparent py-1">
-                      {activeClient 
-                        ? `Optimize ${activeClient.name}'s Portfolio` 
+                      {activeClient
+                        ? `Optimize ${activeClient.name}'s Portfolio`
                         : "Command your campaign metrics."}
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md leading-relaxed">
@@ -2706,7 +2770,7 @@ export default function AIScreen() {
                         className="size-1.5 bg-indigo-500 rounded-full"
                       />
                     ))}
-                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1">Generating SQL & Visual Chart...</span>
+                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1">MIP AI Brain is thinking...</span>
                   </div>
                 </div>
               )}
@@ -2717,7 +2781,7 @@ export default function AIScreen() {
           {/* Sticky bottom input floating capsule container */}
           <div className="border-t border-slate-100/40 p-4 bg-gradient-to-t from-white via-white/95 to-transparent flex-shrink-0 sticky bottom-0 z-20">
             <div className="max-w-3xl w-full mx-auto">
-              
+
               {/* Quick chips if conversation is starting (shows above input pill only on sm devices) */}
               {messages.length > 1 && messages.length <= 3 && !isTyping && (
                 <div className="mb-3.5 select-none hidden sm:block">
@@ -2745,7 +2809,7 @@ export default function AIScreen() {
                 >
                   <Trash2 className="size-4.5" />
                 </button>
-                
+
                 <textarea
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -2763,7 +2827,7 @@ export default function AIScreen() {
                   <Send className="size-4" />
                 </button>
               </div>
-              
+
               <div className="text-[9px] text-slate-400 mt-2 text-center select-none font-medium">
                 Press <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 py-0.5 rounded text-[8px] font-bold">Ctrl + Enter</kbd> to submit query
               </div>

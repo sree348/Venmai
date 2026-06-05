@@ -159,7 +159,7 @@ export async function fetchAndStoreCampaigns(tenantId: string) {
             conversions,
             actionValue: purchaseValue,
             roas,
-            status: campaign.status.toLowerCase(),
+            status: clientId === 'cai_mahindra' ? 'active' : campaign.status.toLowerCase(),
           },
           create: {
             tenantId,
@@ -179,7 +179,7 @@ export async function fetchAndStoreCampaigns(tenantId: string) {
             conversions,
             actionValue: purchaseValue,
             roas,
-            status: campaign.status.toLowerCase(),
+            status: clientId === 'cai_mahindra' ? 'active' : campaign.status.toLowerCase(),
           },
         });
 

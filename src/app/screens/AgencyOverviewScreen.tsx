@@ -329,7 +329,7 @@ export default function AgencyOverviewScreen() {
               </>
             ) : (
               <>
-                <Download className="size-4 text-muted-foreground" /> Agency Report
+                <Download className="size-4 text-muted-foreground" /> Report
               </>
             )}
           </button>
@@ -507,47 +507,56 @@ export default function AgencyOverviewScreen() {
           }
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {clientStats.map((clientItem: any) => (
-              <div 
-                key={clientItem.id}
-                onClick={() => onSelectClient(clientItem.id)}
-                className="block rounded-2xl border border-border bg-surface-2/40 p-5 transition-all hover:border-primary/40 hover:shadow-card cursor-pointer group"
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className={`grid size-11 place-items-center rounded-xl bg-gradient-to-br ${clientItem.color || 'bg-gradient-rose'} text-sm font-bold text-white shadow-md`}>
-                    {clientItem.avatar || clientItem.name.slice(0, 2).toUpperCase()}
+            {clientStats.map((clientItem: any) => {
+              const isSingleClient = clientStats.length === 1;
+              return (
+                <div 
+                  key={clientItem.id}
+                  onClick={() => onSelectClient(clientItem.id)}
+                  className={`block rounded-2xl border border-border bg-surface-2/40 p-5 transition-all hover:border-primary/40 hover:shadow-card cursor-pointer group ${
+                    isSingleClient ? 'md:col-span-2 lg:col-span-2' : ''
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className={`grid size-11 place-items-center rounded-xl bg-gradient-to-br ${clientItem.color || 'bg-gradient-rose'} text-sm font-bold text-white shadow-md`}>
+                      {clientItem.avatar || clientItem.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-display text-base font-bold text-foreground group-hover:text-primary transition-colors">{clientItem.name}</div>
+                      <div className="text-xs text-muted-foreground">{clientItem.industry}</div>
+                    </div>
+                    <span className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
+                      clientItem.status === 'healthy' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                        : 'bg-rose-50 text-rose-700 border-rose-100'
+                    }`}>
+                      <span className={`size-1.5 rounded-full ${clientItem.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      {clientItem.status === 'healthy' ? 'Healthy' : 'Needs attention'}
+                    </span>
                   </div>
-                  <div>
-                    <div className="font-display text-base font-bold text-foreground group-hover:text-primary transition-colors">{clientItem.name}</div>
-                    <div className="text-xs text-muted-foreground">{clientItem.industry}</div>
-                  </div>
-                  <span className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-                    clientItem.status === 'healthy' 
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
-                      : 'bg-rose-50 text-rose-700 border-rose-100'
+
+                  <div className={`mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border select-none ${
+                    isSingleClient 
+                      ? 'sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4' 
+                      : 'sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4'
                   }`}>
-                    <span className={`size-1.5 rounded-full ${clientItem.status === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    {clientItem.status === 'healthy' ? 'Healthy' : 'Needs attention'}
-                  </span>
-                </div>
+                    <Stat label="Spend" value={formatCurrency(clientItem.spend)} />
+                    <Stat label="Avg CPC" value={formatCpc(clientItem.cpc)} accent="amber" />
+                    <Stat label="Conversions" value={clientItem.conv} />
+                    <Stat label="Campaigns" value={`${clientItem.activeCampaigns}/${clientItem.totalCampaigns}`} />
+                  </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-4 select-none">
-                  <Stat label="Spend" value={formatCurrency(clientItem.spend)} />
-                  <Stat label="Avg CPC" value={formatCpc(clientItem.cpc)} accent="amber" />
-                  <Stat label="Conversions" value={clientItem.conv} />
-                  <Stat label="Campaigns" value={`${clientItem.activeCampaigns}/${clientItem.totalCampaigns}`} />
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground border-t border-border/40 pt-3">
+                    <span>✓ {clientItem.accountManager}</span>
+                    <span>·</span>
+                    <span>{clientItem.dashboardCount} dashboard{clientItem.dashboardCount === 1 ? '' : 's'}</span>
+                    <span className="ml-auto font-semibold text-primary group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                      Manage <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
                 </div>
-
-                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground border-t border-border/40 pt-3">
-                  <span>✓ {clientItem.accountManager}</span>
-                  <span>·</span>
-                  <span>{clientItem.dashboardCount} dashboard{clientItem.dashboardCount === 1 ? '' : 's'}</span>
-                  <span className="ml-auto font-semibold text-primary group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                    Manage <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Panel>
       </div>
@@ -877,13 +886,13 @@ function Panel({
 
 function Stat({ label, value, suffix, accent }: { label: string; value: string; suffix?: string; accent?: "amber" }) {
   return (
-    <div className="bg-card p-4">
-      <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+    <div className="bg-card p-3 sm:p-4 md:p-3 lg:p-3 xl:p-4 min-w-0">
+      <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-muted-foreground truncate">
         {label}
       </div>
-      <div className="font-num text-lg font-semibold tabular-nums text-foreground" style={accent === "amber" ? { color: "var(--orange)" } : undefined}>
+      <div className="font-num text-base sm:text-lg md:text-base lg:text-base xl:text-lg font-semibold tabular-nums text-foreground truncate" style={accent === "amber" ? { color: "var(--orange)" } : undefined}>
         {value}
-        {suffix && <span className="text-xs font-normal text-muted-foreground">{suffix}</span>}
+        {suffix && <span className="text-xs font-normal text-muted-foreground ml-0.5">{suffix}</span>}
       </div>
     </div>
   );

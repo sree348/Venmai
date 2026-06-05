@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const Groq = require('groq-sdk');
+const { OpenAI } = require('openai');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -89,12 +89,12 @@ function prepareAiSql(rawSql, scopeId) {
 }
 
 async function test() {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const prompt = "Compare the performance of Mahindra XUV700 versus Mahindra Thar campaigns.";
 
-  console.log("Asking Groq...");
-  const completion = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+  console.log("Asking OpenAI...");
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
     temperature: 0.1,
     response_format: { type: 'json_object' },
     messages: [
@@ -104,7 +104,7 @@ async function test() {
   });
 
   const content = completion.choices[0]?.message?.content;
-  console.log("Groq raw response:", content);
+  console.log("OpenAI raw response:", content);
 
   const spec = JSON.parse(content);
   console.log("Generated SQL:", spec.sql);
@@ -132,8 +132,8 @@ Based strictly on the database results above, write a concise, professional, and
 `;
 
   console.log("\nGenerating live answer...");
-  const completion2 = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+  const completion2 = await openai.chat.completions.create({
+    model: 'gpt-4o',
     temperature: 0.2,
     messages: [
       { role: 'user', content: promptMessage }

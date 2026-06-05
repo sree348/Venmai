@@ -73,7 +73,7 @@ export async function downloadReportDocx({ report, client, campaigns, integratio
                     cell(campaign.name),
                     cell(campaign.channel),
                     cell(formatInr(campaign.spend)),
-                    cell(`${campaign.ctr}%`),
+                    cell(`${Number(campaign.ctr || 0).toFixed(2)}%`),
                     cell(campaignCpc === null || campaignCpc === undefined || campaignCpc === 0 ? 'N/A' : `₹${campaignCpc.toFixed(2)}`),
                     cell(campaign.status),
                   ],

@@ -1,4 +1,5 @@
-import { ChatGroq } from '@langchain/groq';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { prisma } from '../services/prisma.service.js';
 import {
@@ -110,22 +111,37 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
   console.log(`Formatted ${campaignsList.length} campaigns for Groq analysis.`);
 
-  // 3. Query Groq
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    console.error('GROQ_API_KEY environment variable is not configured. Skipping insights generation.');
+  // 3. Query LLM (OpenAI or Claude)
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+
+  if (!openaiApiKey && !anthropicApiKey) {
+    console.error('Neither OPENAI_API_KEY nor CLAUDE_API_KEY/ANTHROPIC_API_KEY is configured. Skipping insights generation.');
     return;
   }
 
   try {
-    const model = new ChatGroq({
-      apiKey,
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.1,
-      modelKwargs: {
-        response_format: { type: 'json_object' },
-      },
-    } as any);
+    let model: any;
+    if (anthropicApiKey) {
+      const anthropicModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+      console.log(`[Brain Job] Using Claude model (${anthropicModel}) for insights generation...`);
+      model = new ChatAnthropic({
+        apiKey: anthropicApiKey,
+        model: anthropicModel,
+        temperature: 0.1,
+        maxRetries: 0,
+      });
+    } else {
+      console.log(`[Brain Job] Using OpenAI model (${process.env.OPENAI_MODEL || 'gpt-4o'}) for insights generation...`);
+      model = new ChatOpenAI({
+        apiKey: openaiApiKey,
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        temperature: 0.1,
+        modelKwargs: {
+          response_format: { type: 'json_object' },
+        },
+      } as any);
+    }
 
     const response = await model.invoke([
       new SystemMessage(SYSTEM_PROMPT),
@@ -134,7 +150,7 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
     const responseText = String(response.content);
     if (!responseText) {
-      throw new Error('Groq returned an empty response.');
+      throw new Error('LLM returned an empty response.');
     }
 
     const cleanJson = cleanJsonString(responseText);
@@ -192,7 +208,7 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
     console.log('Insights saved successfully!');
   } catch (error) {
-    console.error('Failed to generate insights from Groq:', error);
+    console.error('Failed to generate insights from OpenAI:', error);
   }
 
   // 4. Calculate and store Campaign Scores

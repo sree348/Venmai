@@ -35,7 +35,7 @@ export async function downloadReportPptx({ report, client, campaigns, integratio
     { title: 'Conversions', value: kpis.totalConversions.toLocaleString(), desc: 'Total conversions' },
     { title: 'Blended CPL', value: kpis.totalConversions > 0 ? `₹${(kpis.totalSpend/kpis.totalConversions).toFixed(2)}` : 'N/A', desc: 'Cost per lead' },
     { title: 'Clicks', value: kpis.totalClicks.toLocaleString(), desc: 'Actions taken' },
-    { title: 'Avg CTR', value: `${kpis.avgCtr}%`, desc: 'CTR rating' },
+    { title: 'Avg CTR', value: `${Number(kpis.avgCtr || 0).toFixed(2)}%`, desc: 'CTR rating' },
     { title: 'Avg CPC', value: `₹${kpis.avgCpc.toFixed(2)}`, desc: 'Cost per click' },
     { title: 'Avg CPM', value: `₹${kpis.avgCpm.toFixed(0)}`, desc: 'Cost per 1k views' }
   ];
@@ -118,7 +118,7 @@ export async function downloadReportPptx({ report, client, campaigns, integratio
       { text: ad.ad_name, options: {} },
       { text: ad.ad_format, options: {} },
       { text: `₹${Math.round(ad.amount_spent).toLocaleString('en-IN')}`, options: {} },
-      { text: `${ad.ctr}%`, options: { color: ad.ctr < 1.0 ? 'DC2626' : '0F172A' } },
+      { text: `${Number(ad.ctr || 0).toFixed(2)}%`, options: { color: ad.ctr < 1.0 ? 'DC2626' : '0F172A' } },
       { text: `₹${ad.cpc.toFixed(2)}`, options: {} },
       { text: String(ad.frequency), options: { color: ad.frequency >= 3.0 ? 'D97706' : '0F172A' } }
     ]);
@@ -147,7 +147,7 @@ export async function downloadReportPptx({ report, client, campaigns, integratio
   let fatigueText = 'Active ads exceeding critical 3.0 frequency fatigue limits:\n\n';
   if (highFreqAds.length > 0) {
     highFreqAds.slice(0, 3).forEach((ad: any) => {
-      fatigueText += `• ${ad.ad_name}\n  (Current Freq: ${ad.frequency} | CTR: ${ad.ctr}%)\n\n`;
+      fatigueText += `• ${ad.ad_name}\n  (Current Freq: ${ad.frequency} | CTR: ${Number(ad.ctr || 0).toFixed(2)}%)\n\n`;
     });
     fatigueText += '👉 Recommendation: Pause these creatives immediately and upload fresh image/video specifications to restore conversion efficiency.';
   } else {

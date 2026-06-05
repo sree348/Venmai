@@ -87,12 +87,24 @@ function DarkTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-slate-900 text-white text-[11px] rounded-xl px-3 py-2 shadow-2xl border border-slate-700 max-w-[220px]">
       {label && <p className="font-bold text-slate-300 mb-1.5">{label}</p>}
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="flex items-center justify-between gap-3">
-          <span style={{ color: p.color ?? p.fill }} className="font-semibold">{p.name}</span>
-          <span className="font-black text-white">{typeof p.value === 'number' ? fmtK(p.value) : p.value}</span>
-        </p>
-      ))}
+      {payload.map((p: any, i: number) => {
+        let valStr = '';
+        if (typeof p.value === 'number') {
+          if (p.name?.toLowerCase().includes('ctr')) {
+            valStr = `${p.value.toFixed(2)}%`;
+          } else {
+            valStr = fmtK(p.value);
+          }
+        } else {
+          valStr = p.value;
+        }
+        return (
+          <p key={i} className="flex items-center justify-between gap-3">
+            <span style={{ color: p.color ?? p.fill }} className="font-semibold">{p.name}</span>
+            <span className="font-black text-white">{valStr}</span>
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -1150,7 +1162,7 @@ export default function DashboardViewerScreen() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} width={80} />
-                <Tooltip formatter={(v: any) => `${v}%`} />
+                <Tooltip formatter={(v: any) => `${Number(v || 0).toFixed(2)}%`} />
                 <Bar dataKey="ctr" name="CTR (%)" radius={[0,4,4,0]} maxBarSize={22}>
                   {byFormat.map((e, i) => <Cell key={i} fill={e.ctr >= 1 ? '#10b981' : '#f59e0b'} />)}
                 </Bar>
@@ -1370,7 +1382,7 @@ export default function DashboardViewerScreen() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} axisLine={false} tickLine={false} width={100} />
-                <Tooltip formatter={(v: any) => `${v}%`} />
+                <Tooltip formatter={(v: any) => `${Number(v || 0).toFixed(2)}%`} />
                 <Bar dataKey="ctr" name="CTR (%)" radius={[0,4,4,0]} maxBarSize={22}>
                   {byCampaignTarget.map((e, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
                 </Bar>
@@ -1443,7 +1455,7 @@ export default function DashboardViewerScreen() {
                       <div className="bg-slate-900 text-white text-[11px] rounded-xl px-3 py-2 shadow-2xl border border-slate-700">
                         <p className="font-bold text-slate-300 mb-1">{d?.name}</p>
                         <p>Spend: <strong>₹{fmtK(d?.x)}</strong></p>
-                        <p>CTR: <strong>{d?.y}%</strong></p>
+                        <p>CTR: <strong>{Number(d?.y || 0).toFixed(2)}%</strong></p>
                         <p>Impressions: <strong>{fmtK((d?.z||0)*1000)}</strong></p>
                       </div>
                     );

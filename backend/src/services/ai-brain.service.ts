@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from './prisma.service.js';
-import { ChatGroq } from '@langchain/groq';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatAnthropic } from '@langchain/anthropic';
 import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 
 // ─── Date Window ────────────────────────────────────────────────────────────
@@ -13,7 +14,7 @@ export const AI_BRAIN_DATE_WINDOW = {
 // ─── Framework ──────────────────────────────────────────────────────────────
 export const AI_BRAIN_FRAMEWORK = {
   framework: 'LangChain',
-  modelProvider: 'Groq',
+  modelProvider: 'OpenAI',
   purpose:
     'Route simple knowledge-base replies locally and complex CAI Media Meta Ads questions into campaign data retrieval.',
 };
@@ -39,6 +40,8 @@ export interface ConversationMessage {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+const CONVERSATION_HISTORY_LIMIT = 6;
+
 const META_ANALYTICS_TERMS = [
   'ad', 'ads', 'campaign', 'campaigns', 'meta', 'facebook', 'instagram',
   'spend', 'budget', 'cpc', 'cpl', 'ctr', 'cpm', 'roas',
@@ -80,10 +83,20 @@ function toMoney(value: number) {
   return `INR ${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
-function getGroqModel(temperature = 0.1, modelKwargs?: Record<string, unknown>) {
-  return new ChatGroq({
-    apiKey: process.env.GROQ_API_KEY,
-    model: 'llama-3.1-8b-instant',
+function getLlmModel(temperature = 0.1, modelKwargs?: Record<string, unknown>) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+  if (anthropicKey) {
+    const anthropicModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+    return new ChatAnthropic({
+      apiKey: anthropicKey,
+      model: anthropicModel,
+      temperature,
+      maxRetries: 0,
+    });
+  }
+  return new ChatOpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    model: process.env.OPENAI_MINI_MODEL || 'gpt-4o-mini',
     temperature,
     modelKwargs,
   } as any);
@@ -97,20 +110,23 @@ export async function classifyAiIntent(
   const normalized = prompt.trim().toLowerCase();
 
   // Fast path: pure greeting with no marketing terms
+  // NOTE: We test GREETING_PATTERNS against the original 'prompt', NOT 'normalized'.
+  // This is intentional so that Tamil greeting patterns (/வணக்கம்/, /நன்றி/) match correctly,
+  // preventing changes to 'normalized' from accidentally breaking Tamil support.
   const hasMetaTerm = META_ANALYTICS_TERMS.some(term => normalized.includes(term));
   if (!hasMetaTerm && GREETING_PATTERNS.some(pattern => pattern.test(prompt))) {
     return { intent: 'knowledge_base', confidence: 'high', detected_entities: [] };
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
   if (!apiKey) {
     return { intent: 'meta_ads_search', confidence: 'low', detected_entities: [] };
   }
 
   try {
-    const model = getGroqModel(0.1, { response_format: { type: 'json_object' } });
+    const model = getLlmModel(0.1, { response_format: { type: 'json_object' } });
 
-    const recentHistory = conversationHistory.slice(-4)
+    const recentHistory = conversationHistory.slice(-CONVERSATION_HISTORY_LIMIT)
       .map(m => `${m.role.toUpperCase()}: ${m.content}`)
       .join('\n');
 
@@ -199,11 +215,11 @@ EXAMPLES
 
 // ─── Knowledge Base Reply ────────────────────────────────────────────────────
 export async function buildKnowledgeBaseReply(prompt: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 
   if (apiKey) {
     try {
-      const model = getGroqModel(0.3);
+      const model = getLlmModel(0.3);
       const systemPrompt = `You are CAI Media's Meta Ads intelligence agent.
 Tone: ${MIP_AI_TONE}
 Respond to greetings, farewells, thanks, and chitchat warmly and concisely.
@@ -239,9 +255,13 @@ export async function buildMetaAdsReply(
   conversationHistory: ConversationMessage[] = [],
   detectedEntities: string[] = [],
 ): Promise<string> {
-  const model = getGroqModel(0.2);
+  if (!mdSnapshot || mdSnapshot.trim().length < 100) {
+    return "No campaign data is available for the current window. Please sync your Meta Ads data first.";
+  }
 
-  const historyMessages = conversationHistory.slice(-6).map(m =>
+  const model = getLlmModel(0.2);
+
+  const historyMessages = conversationHistory.slice(-CONVERSATION_HISTORY_LIMIT).map(m =>
     m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content),
   );
 
@@ -438,6 +458,8 @@ export async function exportAgentDataSnapshot(tenantId: string, clientId?: strin
     const frequency = Number(campaign._avg.frequency ?? 0);
 
     // Campaign type detection
+    // NOTE: Priority order is crucial for mixed-name campaigns (e.g., "XEV Commercial May").
+    // 'commercial' is checked first and wins over others. Keep this order to avoid breaking behavior.
     const name = campaign.campaignName.toLowerCase();
     const type = name.includes('commercial')
       ? 'COMMERCIAL'
@@ -503,6 +525,8 @@ export async function exportAgentDataSnapshot(tenantId: string, clientId?: strin
   const csv = [
     csvHeaders.join(','),
     ...rows.map(row => {
+      // NOTE: Priority order is crucial for mixed-name campaigns (e.g., "XEV Commercial May").
+      // 'commercial' is checked first and wins over others. Keep this order to avoid breaking behavior.
       const rowName = row.campaignName.toLowerCase();
       const rowType = rowName.includes('commercial')
         ? 'COMMERCIAL'
@@ -539,9 +563,9 @@ export async function exportAgentDataSnapshot(tenantId: string, clientId?: strin
 
     const action =
       row.conversions === 0 && row.spend > 1000 ? '🔴 Pause or audit waste' :
-      row.frequency >= 3 ? '⚠️ Refresh creative' :
-      row.cpl !== null && row.cpl <= 150 ? '✅ Scale carefully' :
-      '👀 Monitor';
+        row.frequency >= 3 ? '⚠️ Refresh creative' :
+          row.cpl !== null && row.cpl <= 150 ? '✅ Scale carefully' :
+            '👀 Monitor';
 
     const benchmarkNote =
       benchmark && benchmark.campaignName !== row.campaignName
