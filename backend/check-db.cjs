@@ -4,13 +4,9 @@ const pool = new Pool({
 });
 
 async function main() {
-  const googleMarch = await pool.query("SELECT count(*), sum(spend) FROM campaign_data WHERE client_id = 'cai_mahindra' AND platform ILIKE '%google%' AND date >= '2026-03-01' AND date <= '2026-03-31'");
-  console.log("=== GOOGLE MARCH 2026 ===");
-  console.log(googleMarch.rows);
-
-  const googleMay = await pool.query("SELECT count(*), sum(spend) FROM campaign_data WHERE client_id = 'cai_mahindra' AND platform ILIKE '%google%' AND date >= '2026-05-01' AND date <= '2026-05-31'");
-  console.log("=== GOOGLE MAY 2026 ===");
-  console.log(googleMay.rows);
+  const res = await pool.query("SELECT campaign_name, platform, SUM(spend)::FLOAT as spend, SUM(impressions)::INTEGER as impressions, SUM(clicks)::INTEGER as clicks, SUM(conversions)::INTEGER as conversions, SUM(reach)::INTEGER as reach FROM campaign_data WHERE client_id = 'cai_mahindra' GROUP BY campaign_name, platform ORDER BY spend DESC");
+  console.log("=== CAI MAHINDRA CAMPAIGNS ===");
+  console.log(JSON.stringify(res.rows, null, 2));
 }
 
 main().catch(console.error).finally(() => pool.end());

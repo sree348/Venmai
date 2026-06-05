@@ -78,9 +78,9 @@ export default function AnalyticsScreen() {
   const baseMetrics = useMemo(() => {
     // If no campaigns, use realistic fallback data matching client scope
     const items = campaigns.length > 0 ? campaigns : [
-      { spend: 180000, conv: 412, clicks: 12000, impressions: 450000, roas: 4.2, active: true },
-      { spend: 120000, conv: 320, clicks: 9500, impressions: 320000, roas: 3.8, active: true },
-      { spend: 65000, conv: 145, clicks: 4200, impressions: 180000, roas: 4.5, active: false }
+      { spend: 180000, conv: 412, clicks: 12000, impressions: 450000, active: true },
+      { spend: 120000, conv: 320, clicks: 9500, impressions: 320000, active: true },
+      { spend: 65000, conv: 145, clicks: 4200, impressions: 180000, active: false }
     ];
 
     const totalSpend = items.reduce((s: number, c: any) => s + (c.spend || 0), 0);
@@ -88,17 +88,8 @@ export default function AnalyticsScreen() {
     const totalClicks = items.reduce((s: number, c: any) => s + (c.clicks || 0), 0);
     const totalImpressions = items.reduce((s: number, c: any) => s + (c.impressions || 0), 0);
     
-    // Average ROAS weighted by spend
-    const weightedRoasSum = items.reduce((s: number, c: any) => s + ((c.spend || 0) * (c.roas || 3.8)), 0);
-    const avgRoas = totalSpend > 0 ? weightedRoasSum / totalSpend : 4.1;
-
-    // Derived Sales
-    const totalSales = totalSpend > 0 ? totalSpend * avgRoas : totalConv * 2100;
-    
-    // Derived sessions
-    const sessions = totalClicks > 0 ? Math.round(totalClicks * 1.45) : 38250;
-    const cvr = sessions > 0 ? (totalConv / sessions) * 100 : 2.85;
-    const aov = totalConv > 0 ? totalSales / totalConv : 2070.60;
+    // Lead generation metrics mapping
+    const cvr = totalClicks > 0 ? (totalConv / totalClicks) * 100 : 3.43;
     const cpa = totalConv > 0 ? totalSpend / totalConv : 450.00;
 
     return {
@@ -106,12 +97,11 @@ export default function AnalyticsScreen() {
       conversions: totalConv,
       clicks: totalClicks,
       impressions: totalImpressions,
-      roas: avgRoas,
-      sales: totalSales,
-      sessions,
-      cvr,
-      aov,
-      cpa
+      sales: totalSpend,        // mapped to Spend
+      sessions: totalClicks,    // mapped to Clicks
+      cvr,                      // click-to-lead CVR
+      aov: totalImpressions,    // mapped to Impressions
+      cpa                       // mapped to CPL
     };
   }, [campaigns]);
 
@@ -181,11 +171,6 @@ export default function AnalyticsScreen() {
     const mult = rangeDetails.multiplier;
     const base = baseMetrics;
 
-    // Distribute core values across date points with random variance
-    let accumulatedSales = 0;
-    let accumulatedSessions = 0;
-    let accumulatedOrders = 0;
-
     const seedRandom = (i: number) => {
       const x = Math.sin(i * 12345.67) * 10000;
       return x - Math.floor(x);
@@ -215,20 +200,20 @@ export default function AnalyticsScreen() {
       const varFactor = 0.7 + seedRandom(i) * 0.6;
       const compVarFactor = 0.65 + seedRandom(i + 50) * 0.55;
 
-      const salesVal = ((base.sales * mult) / N) * varFactor;
-      const sessionsVal = Math.round(((base.sessions * mult) / N) * varFactor);
-      const ordersVal = Math.max(1, Math.round(((base.conversions * mult) / N) * varFactor));
-      const cvrVal = sessionsVal > 0 ? (ordersVal / sessionsVal) * 100 : 2.85;
-      const aovVal = ordersVal > 0 ? salesVal / ordersVal : 2070.60;
-      const cpaVal = ordersVal > 0 ? (((base.spend * mult) / N) * varFactor) / ordersVal : 450.00;
+      const salesVal = ((base.sales * mult) / N) * varFactor; // Spend
+      const sessionsVal = Math.round(((base.sessions * mult) / N) * varFactor); // Clicks
+      const ordersVal = Math.max(1, Math.round(((base.conversions * mult) / N) * varFactor)); // Leads
+      const cvrVal = sessionsVal > 0 ? (ordersVal / sessionsVal) * 100 : 3.4; // CVR
+      const aovVal = Math.round(((base.aov * mult) / N) * varFactor); // Impressions
+      const cpaVal = base.cpa * varFactor; // CPL (non-multiplied average)
 
       // Comparison period
       const compSalesVal = ((base.sales * mult * 0.88) / N) * compVarFactor;
       const compSessionsVal = Math.round(((base.sessions * mult * 0.92) / N) * compVarFactor);
       const compOrdersVal = Math.max(1, Math.round(((base.conversions * mult * 0.85) / N) * compVarFactor));
-      const compCvrVal = compSessionsVal > 0 ? (compOrdersVal / compSessionsVal) * 100 : 2.80;
-      const compAovVal = compOrdersVal > 0 ? compSalesVal / compOrdersVal : 2000;
-      const compCpaVal = compOrdersVal > 0 ? (((base.spend * mult * 0.9) / N) * compVarFactor) / compOrdersVal : 470.00;
+      const compCvrVal = compSessionsVal > 0 ? (compOrdersVal / compSessionsVal) * 100 : 3.2;
+      const compAovVal = Math.round(((base.aov * mult * 0.88) / N) * compVarFactor);
+      const compCpaVal = base.cpa * 1.05 * compVarFactor;
 
       data.push({
         date: dateLabel,
@@ -260,79 +245,78 @@ export default function AnalyticsScreen() {
     return [
       {
         id: 'sales',
-        label: 'Total sales',
+        label: 'Total Spend',
         value: `₹${Math.round(base.sales * mult).toLocaleString('en-IN')}`,
         subtext: trends.sales.pct > 0 ? `+${trends.sales.pct.toFixed(1)}%` : `${trends.sales.pct.toFixed(1)}%`,
         pos: trends.sales.pos,
         icon: <IndianRupee className="w-4 h-4" />,
         sparkKey: 'sales',
         compSparkKey: 'compSales',
-        tooltip: 'The total value of orders placed. Includes shipping, taxes, and discounts.'
+        tooltip: 'The total ad budget spend across all campaigns.'
       },
       {
         id: 'sessions',
-        label: 'Online store sessions',
+        label: 'Total Clicks',
         value: Math.round(base.sessions * mult).toLocaleString('en-IN'),
         subtext: trends.sessions.pct > 0 ? `+${trends.sessions.pct.toFixed(1)}%` : `${trends.sessions.pct.toFixed(1)}%`,
         pos: trends.sessions.pos,
         icon: <Users className="w-4 h-4" />,
         sparkKey: 'sessions',
         compSparkKey: 'compSessions',
-        tooltip: 'A session is a period of active interaction by a unique visitor. Multiple visits count as one session.'
+        tooltip: 'The total number of ad clicks generated.'
       },
       {
         id: 'cvr',
-        label: 'Online store conversion rate',
+        label: 'Click-to-Lead CVR',
         value: `${base.cvr.toFixed(2)}%`,
         subtext: trends.cvr.pct > 0 ? `+${trends.cvr.pct.toFixed(1)}%` : `${trends.cvr.pct.toFixed(1)}%`,
         pos: trends.cvr.pos,
         icon: <Percent className="w-4 h-4" />,
         sparkKey: 'cvr',
         compSparkKey: 'compCvr',
-        tooltip: 'The percentage of sessions that resulted in an order.'
+        tooltip: 'The percentage of clicks that converted into submitted lead forms.'
       },
       {
         id: 'orders',
-        label: 'Total orders',
+        label: 'Total Leads',
         value: Math.round(base.conversions * mult).toLocaleString('en-IN'),
         subtext: trends.orders.pct > 0 ? `+${trends.orders.pct.toFixed(1)}%` : `${trends.orders.pct.toFixed(1)}%`,
         pos: trends.orders.pos,
         icon: <Target className="w-4 h-4" />,
         sparkKey: 'orders',
         compSparkKey: 'compOrders',
-        tooltip: 'The total number of conversion orders generated from ad channels.'
+        tooltip: 'The total number of leads generated.'
       },
       {
         id: 'aov',
-        label: 'Average order value',
-        value: `₹${Math.round(base.aov).toLocaleString('en-IN')}`,
+        label: 'Total Impressions',
+        value: Math.round(base.aov * mult).toLocaleString('en-IN'),
         subtext: trends.aov.pct > 0 ? `+${trends.aov.pct.toFixed(1)}%` : `${trends.aov.pct.toFixed(1)}%`,
         pos: trends.aov.pos,
         icon: <MousePointer className="w-4 h-4" />,
         sparkKey: 'aov',
         compSparkKey: 'compAov',
-        tooltip: 'Average spend per order (Total sales divided by total orders).'
+        tooltip: 'The total number of ad impressions served.'
       },
       {
         id: 'cpa',
-        label: 'Cost Per Acquisition (CPA)',
+        label: 'Cost Per Lead (CPL)',
         value: `₹${Math.round(base.cpa).toLocaleString('en-IN')}`,
         subtext: trends.cpa.pct > 0 ? `${trends.cpa.pct.toFixed(1)}%` : `+${trends.cpa.pct.toFixed(1)}%`,
         pos: trends.cpa.pos, // CPA falling is positive
         icon: <Activity className="w-4 h-4" />,
         sparkKey: 'cpa',
         compSparkKey: 'compCpa',
-        tooltip: 'The average marketing cost required to generate one acquisition lead/order.'
+        tooltip: 'The average marketing cost to generate a single lead.'
       }
     ];
   }, [baseMetrics, rangeDetails]);
 
   // ── 5. Attributing Channels & Devices ──────────────────────────────────────
   const channelBreakdown = useMemo(() => {
-    const totalSales = baseMetrics.sales * rangeDetails.multiplier;
+    const totalLeads = baseMetrics.conversions * rangeDetails.multiplier;
     const totalSessions = baseMetrics.sessions * rangeDetails.multiplier;
     
-    // Extrapolate Meta, Google from actual campaigns, inject standard Organic/Direct/Email ratios
     let metaSpend = 0;
     let googleSpend = 0;
     campaigns.forEach((c: any) => {
@@ -347,20 +331,19 @@ export default function AnalyticsScreen() {
     const metaRatio = metaSpend > 0 ? metaSpend / (metaSpend + googleSpend || 1) : 0.55;
     const googleRatio = 1 - metaRatio;
 
-    // Shopify-style sales channels data
     const channels = [
-      { name: 'Meta Ads', sales: totalSales * 0.42 * metaRatio, sessions: totalSessions * 0.38, color: 'bg-indigo-650' },
-      { name: 'Google Ads', sales: totalSales * 0.35 * googleRatio, sessions: totalSessions * 0.32, color: 'bg-emerald-600' },
-      { name: 'Organic Search', sales: totalSales * 0.12, sessions: totalSessions * 0.18, color: 'bg-slate-400' },
-      { name: 'Direct Traffic', sales: totalSales * 0.08, sessions: totalSessions * 0.09, color: 'bg-amber-500' },
-      { name: 'Email Marketing', sales: totalSales * 0.03, sessions: totalSessions * 0.03, color: 'bg-violet-500' },
+      { name: 'Meta Ads', leads: totalLeads * 0.45 * metaRatio, sessions: totalSessions * 0.38, color: 'bg-indigo-650' },
+      { name: 'Google Ads', leads: totalLeads * 0.4 * googleRatio, sessions: totalSessions * 0.32, color: 'bg-emerald-600' },
+      { name: 'Organic Search', leads: totalLeads * 0.08, sessions: totalSessions * 0.18, color: 'bg-slate-400' },
+      { name: 'Direct Traffic', leads: totalLeads * 0.05, sessions: totalSessions * 0.09, color: 'bg-amber-500' },
+      { name: 'Email Marketing', leads: totalLeads * 0.02, sessions: totalSessions * 0.03, color: 'bg-violet-500' },
     ];
 
-    const sumSales = channels.reduce((s, c) => s + c.sales, 0);
+    const sumLeads = channels.reduce((s, c) => s + c.leads, 0);
     return channels.map(c => ({
       ...c,
-      pct: (c.sales / (sumSales || 1)) * 100
-    })).sort((a, b) => b.sales - a.sales);
+      pct: (c.leads / (sumLeads || 1)) * 100
+    })).sort((a, b) => b.leads - a.leads);
   }, [baseMetrics, rangeDetails, campaigns]);
 
   const deviceBreakdown = useMemo(() => {
@@ -386,7 +369,6 @@ export default function AnalyticsScreen() {
     return states;
   }, [baseMetrics, rangeDetails]);
 
-  // Main chart configs based on clicked bento card
   const mainChartConfig = useMemo(() => {
     const item = bentoMetrics.find(m => m.id === activeMetricId) || bentoMetrics[0];
     return {
@@ -394,7 +376,7 @@ export default function AnalyticsScreen() {
       dataKey: item.sparkKey,
       compDataKey: item.compSparkKey,
       yFormatter: (v: number) => {
-        if (item.id === 'sales' || item.id === 'aov' || item.id === 'cpa') return `₹${v.toLocaleString('en-IN')}`;
+        if (item.id === 'sales' || item.id === 'cpa') return `₹${v.toLocaleString('en-IN')}`;
         if (item.id === 'cvr') return `${v}%`;
         return v.toLocaleString('en-IN');
       }
@@ -434,7 +416,7 @@ export default function AnalyticsScreen() {
             {activeClient ? (
               <span>Performance and business intelligence for <strong>{activeClient.name}</strong></span>
             ) : (
-              'Store performance metrics compiled from integrated tracking endpoints'
+              'Lead generation performance metrics compiled from integrated tracking endpoints'
             )}
           </p>
         </div>
@@ -632,11 +614,11 @@ export default function AnalyticsScreen() {
           </ResponsiveContainer>
         </div>
 
-        {/* Sales by Channel progress list (Shopify Style) */}
+        {/* Leads by Channel progress list */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col">
           <div className="mb-4">
-            <h3 className="text-sm font-bold text-slate-900">Sales by sales channel</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Orders routed per ad and organic referrers</p>
+            <h3 className="text-sm font-bold text-slate-900">Leads by marketing channel</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Leads routed per ad and organic referrers</p>
           </div>
 
           <div className="space-y-4 flex-1">
@@ -645,7 +627,7 @@ export default function AnalyticsScreen() {
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-slate-700">{channel.name}</span>
                   <div className="text-right">
-                    <span className="text-slate-900 font-bold">₹{Math.round(channel.sales).toLocaleString('en-IN')}</span>
+                    <span className="text-slate-900 font-bold">{Math.round(channel.leads).toLocaleString('en-IN')} leads</span>
                     <span className="text-slate-400 font-medium ml-1.5">{channel.pct.toFixed(0)}%</span>
                   </div>
                 </div>
@@ -748,7 +730,7 @@ export default function AnalyticsScreen() {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Marketing campaign referrers</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Conversion ledger for top ad sets</p>
+            <p className="text-xs text-slate-400 mt-0.5">Lead ledger for top ad sets</p>
           </div>
           <button className="h-8 px-3 border border-slate-200 bg-white rounded-lg text-xs font-bold text-slate-650 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm cursor-pointer select-none">
             <Download className="w-3.5 h-3.5" /> Export ledger
@@ -763,7 +745,7 @@ export default function AnalyticsScreen() {
                 <th className="pb-3 text-center">Status</th>
                 <th className="pb-3 text-center">Source</th>
                 <th className="pb-3 text-right">Spend</th>
-                <th className="pb-3 text-right">Conversions</th>
+                <th className="pb-3 text-right">Leads</th>
                 <th className="pb-3 text-right">CTR</th>
               </tr>
             </thead>
@@ -791,7 +773,7 @@ export default function AnalyticsScreen() {
               {topCampaignsList.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
-                    No campaigns linked to active store metrics
+                    No campaigns linked to active lead metrics
                   </td>
                 </tr>
               )}

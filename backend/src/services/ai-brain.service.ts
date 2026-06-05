@@ -344,6 +344,9 @@ MEMORY RULES:
 CURRENCY: Always use ₹, never $
 LANGUAGE: Match the user's language (Tamil or English)
 
+DATE WINDOW LIMITATION:
+- CRITICAL: Do NOT mention the specific date range "April 20 to May 31" (or "April 20 - May 31", "April 20th to May 31st", or similar variations) or refer to the limits/timeframe of the data window in your response. State campaign facts, missing campaigns, or performance directly without mentioning this specific date range or data window.
+
 ═══════════════════════════════════
 CAMPAIGN DATA
 ═══════════════════════════════════

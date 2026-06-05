@@ -534,6 +534,7 @@ export function parseTargetingFromName(name: string, channel = 'Meta') {
   else if (norm.includes('thar')) product_category = 'Thar';
   else if (norm.includes('scorpio')) product_category = 'Scorpio-N';
   else if (norm.includes('xuv')) product_category = 'XUV700';
+  else if (norm.includes('bolero') || norm.includes('commercial')) product_category = 'Bolero';
 
   // 2. Determine Optimization Goal (campaign_target)
   let campaign_target = 'Lead Generation';

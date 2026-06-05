@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAgentStore } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
-import { Sparkles, Trash2, Send, Cpu, Lightbulb, AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, Zap, Settings, Pin, ChevronDown, Pause, Plus, Edit, Check } from 'lucide-react';
+import { Sparkles, Trash2, Send, Cpu, Lightbulb, AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, Zap, Settings, Pin, ChevronDown, Pause, Plus, Edit, Check, Globe, Database, Search, Home, Compass, BookOpen, History as HistoryIcon, Paperclip, Mic, Image as ImageIcon, Minus, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PageWrapper from '../components/shared/PageWrapper';
 import { apiService } from '../../services/api.service';
 import WidgetRenderer, { formatInr, formatRoas } from '../components/shared/WidgetRenderer';
 import { getAlerts, getConnectedPlatforms, getPerformanceSummary, getRecommendations } from '../../services/insights.service';
 import { toast } from 'sonner';
+import mipLogo from '../components/shared/mip_logo.png';
 
 const MetaIcon = () => (
   <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -27,7 +28,6 @@ const QUICK_CHIPS = [
   "What should I pause today and why?",
   "Which campaigns are wasting budget with zero conversions?",
   "Where should I scale budget based on CPC and CTR?",
-  "Show campaigns with frequency fatigue above 3.0",
   "Which campaign has the worst CPC and what should I fix?",
   "Summarize Meta spend, conversions, CPC, and CPL this month"
 ];
@@ -87,9 +87,9 @@ function buildGenericAgentReply(prompt: string) {
     return 'You are welcome. I am here when you want a clean read on CAI Media campaign movement, waste, fatigue, or scaling opportunities.';
   }
   if (/\bwho\s+are\s+you\b|\bwhat\s+can\s+you\s+do\b/.test(normalized)) {
-    return 'I am your CAI Media Meta Ads intelligence agent. Ask me about campaign spend, CPL, CTR, CPM, ROAS, frequency, budget waste, or what to pause and scale.';
+    return 'I am your Marketing intelligence agent. Ask me about campaign spend, CPL, CTR, CPM, ROAS, frequency, budget waste, or what to pause and scale.';
   }
-  return 'Hi. I am your CAI Media marketing agent. Ask me anything about your Meta Ads campaigns, or tell me which campaign you want me to inspect.';
+  return 'Hi. I am your marketing agent. Ask me anything about your Ad campaigns, or tell me which campaign you want me to inspect.';
 }
 
 const BENCHMARKS = {
@@ -483,6 +483,9 @@ export interface ParsedRecommendation {
 
 export interface ParsedOutput {
   headline: string;
+  scene: string;
+  conflict: string;
+  turningPoint: string;
   metricsTable: ParsedTable | null;
   analystThinking: string;
   redFlags: ParsedRedFlag[];
@@ -496,6 +499,9 @@ export interface ParsedOutput {
 export function parseMessageContent(content: string): ParsedOutput {
   const result: ParsedOutput = {
     headline: '',
+    scene: '',
+    conflict: '',
+    turningPoint: '',
     metricsTable: null,
     analystThinking: '',
     redFlags: [],
@@ -506,11 +512,18 @@ export function parseMessageContent(content: string): ParsedOutput {
     remainingText: ''
   };
 
+  // Normalize literal \n escape sequences to real newlines (backend may return escaped strings)
+  const normalized = content
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '  ');
+
   // Remove chartdata block
-  const cleanText = content.replace(/```chartdata[\s\S]*?```/g, '').trim();
+  const cleanText = normalized.replace(/```chartdata[\s\S]*?```/g, '').trim();
   const lines = cleanText.split('\n');
 
-  let currentSection: 'none' | 'analyst_thinking' | 'root_cause' | 'also_look_at' | 'ask_me' = 'none';
+  let currentSection: 'none' | 'analyst_thinking' | 'root_cause' | 'also_look_at' | 'ask_me' | 'scene' | 'conflict' | 'turning_point' | 'act6_resolution' = 'none';
+  let inTurningPointCodeBlock = false;
   let tempTableRows: string[][] = [];
   let tempTableHeaders: string[] = [];
   let isInTable = false;
@@ -575,22 +588,57 @@ export function parseMessageContent(content: string): ParsedOutput {
       processTable();
     }
 
+    // Detect turning point code block (``` fenced block under ACT 5)
+    if (trimmed.startsWith('```') && !trimmed.startsWith('```chartdata')) {
+      if (currentSection === 'turning_point') {
+        inTurningPointCodeBlock = !inTurningPointCodeBlock;
+        continue;
+      }
+      inTurningPointCodeBlock = false;
+      continue;
+    }
+    if (inTurningPointCodeBlock && currentSection === 'turning_point') {
+      if (trimmed !== '---' && trimmed !== '***') {
+        result.turningPoint += (result.turningPoint ? '\n' : '') + line;
+      }
+      continue;
+    }
+
     // Detect Section Headings
     const headingMatch = trimmed.match(/^(?:###|##|#)\s*(.*)$/);
     if (headingMatch) {
-      const headingText = headingMatch[1].trim().toLowerCase();
+      const headingText = headingMatch[1].trim();
+      const headingLower = headingText.toLowerCase();
 
-      // Clean emoji from heading
-      const cleanHeading = headingText.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^\w\s]/g, '').trim();
+      // Clean emoji from heading for matching
+      const cleanHeading = headingLower.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').replace(/[^\w\s]/g, '').trim();
 
-      if (cleanHeading.includes('analyst thinking')) {
-        currentSection = 'analyst_thinking';
-      } else if (cleanHeading.includes('root cause')) {
-        currentSection = 'root_cause';
+      // ACT-style headers (new storytelling format)
+      const hasAct1 = /act\s*1|\u{1F3AC}/u.test(headingLower);
+      const hasAct2 = /act\s*2|\u{1F4CD}/u.test(headingLower);
+      const hasAct3 = /act\s*3|\u2694|\u{2694}|problem nobody/u.test(headingLower);
+      const hasAct4 = /act\s*4|\u{1F50D}|why is this happening|real story/u.test(headingLower);
+      const hasAct5 = /act\s*5|\u26A1|numbers that change/u.test(headingLower);
+      const hasAct6 = /act\s*6|\u{1F3AF}|three moves|fix this/u.test(headingLower);
+      const hasAct7 = /act\s*7|\u{1F3AD}|questions this report/u.test(headingLower);
+
+      if (hasAct1) {
+        currentSection = 'none'; // headline captured from next non-empty line
+      } else if (hasAct2) {
+        currentSection = 'scene';
+      } else if (hasAct3) {
+        currentSection = 'conflict';
+      } else if (hasAct4 || cleanHeading.includes('root cause') || cleanHeading.includes('analyst thinking')) {
+        currentSection = hasAct4 ? 'root_cause' : (cleanHeading.includes('analyst thinking') ? 'analyst_thinking' : 'root_cause');
+      } else if (hasAct5) {
+        currentSection = 'turning_point';
+        inTurningPointCodeBlock = false;
+      } else if (hasAct6) {
+        currentSection = 'act6_resolution';
+      } else if (hasAct7 || cleanHeading.includes('ask me') || cleanHeading.includes('the story continues') || cleanHeading.includes('questions this report')) {
+        currentSection = 'ask_me';
       } else if (cleanHeading.includes('you should also look at') || cleanHeading.includes('look at')) {
         currentSection = 'also_look_at';
-      } else if (cleanHeading.includes('ask me')) {
-        currentSection = 'ask_me';
       } else {
         currentSection = 'none';
       }
@@ -602,8 +650,14 @@ export function parseMessageContent(content: string): ParsedOutput {
       currentSection = 'also_look_at';
       continue;
     }
-    if (trimmed.includes('Ask me:') || trimmed.toLowerCase().startsWith('ask me')) {
+    if (trimmed.includes('Ask me:') || trimmed.toLowerCase().startsWith('ask me') || trimmed.includes('The story continues') || trimmed.includes('🧵')) {
       currentSection = 'ask_me';
+      continue;
+    }
+    // ACT 7 note lines (📌 prefix) — treat as alsoLookAt
+    if (trimmed.startsWith('📌') || trimmed.startsWith('→')) {
+      const noteText = trimmed.replace(/^[📌→\s]+/, '').trim();
+      if (noteText) result.alsoLookAt.push(noteText);
       continue;
     }
 
@@ -643,6 +697,11 @@ export function parseMessageContent(content: string): ParsedOutput {
         result.askMe.push(itemText);
         continue;
       }
+      // ACT 6 resolution — numbered moves go into remainingText for now (rendered as part of conflict block)
+      if (currentSection === 'act6_resolution') {
+        result.conflict += (result.conflict ? '\n' : '') + trimmed;
+        continue;
+      }
     }
 
     // Set headline if empty and not in any section or table
@@ -660,6 +719,14 @@ export function parseMessageContent(content: string): ParsedOutput {
         result.analystThinking += (result.analystThinking ? '\n' : '') + trimmed;
       } else if (currentSection === 'root_cause') {
         result.rootCause += (result.rootCause ? '\n' : '') + trimmed;
+      } else if (currentSection === 'scene') {
+        result.scene += (result.scene ? '\n' : '') + trimmed;
+      } else if (currentSection === 'conflict') {
+        result.conflict += (result.conflict ? '\n' : '') + trimmed;
+      } else if (currentSection === 'turning_point') {
+        result.turningPoint += (result.turningPoint ? '\n' : '') + trimmed;
+      } else if (currentSection === 'act6_resolution') {
+        result.conflict += (result.conflict ? '\n' : '') + trimmed;
       } else if (currentSection === 'none') {
         result.remainingText += (result.remainingText ? '\n' : '') + trimmed;
       }
@@ -669,6 +736,14 @@ export function parseMessageContent(content: string): ParsedOutput {
   // Handle table if message ends with table open
   if (isInTable) {
     processTable();
+  }
+
+  if (result.turningPoint) {
+    result.turningPoint = result.turningPoint
+      .split('\n')
+      .filter(line => !/^[-\s*]+$/.test(line))
+      .join('\n')
+      .trim();
   }
 
   return result;
@@ -681,7 +756,7 @@ interface StructuredMessageRendererProps {
 
 const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ content, handleSend }) => {
   const parsed = parseMessageContent(content);
-  const isStructured = !!(parsed.metricsTable || parsed.redFlags.length > 0 || parsed.recommendations.length > 0 || parsed.rootCause || parsed.analystThinking || parsed.askMe.length > 0);
+  const isStructured = !!(parsed.metricsTable || parsed.redFlags.length > 0 || parsed.recommendations.length > 0 || parsed.rootCause || parsed.analystThinking || parsed.conflict || parsed.turningPoint || parsed.askMe.length > 0);
 
   const formatInlineText = (text: string) => {
     if (!text) return null;
@@ -709,15 +784,23 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
 
   return (
     <div className="w-full space-y-5 py-1">
-      {/* Headline */}
+      {/* Headline — ACT 1 */}
       {parsed.headline && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent border border-indigo-100/50 shadow-sm">
           <div className="flex items-start gap-3">
-            <span className="text-xl leading-none select-none">📊</span>
+            <span className="text-xl leading-none select-none"></span>
             <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-800 leading-snug">
               {formatInlineText(parsed.headline)}
             </h3>
           </div>
+        </div>
+      )}
+
+      {/* Scene — ACT 2 */}
+      {parsed.scene && (
+        <div className="px-4 py-3 rounded-xl bg-slate-50/60 border border-slate-200/60 text-xs sm:text-[13px] text-slate-600 leading-relaxed font-medium">
+          <span className="text-base mr-1.5 select-none">📍</span>
+          {formatInlineText(parsed.scene)}
         </div>
       )}
 
@@ -844,7 +927,23 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
         </div>
       )}
 
-      {/* Root Cause */}
+      {/* Conflict Box — ACT 3 */}
+      {parsed.conflict && (
+        <div className="rounded-xl border border-red-200 bg-red-50/30 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-2.5 select-none">
+              <span className="text-base leading-none"></span>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-red-700">The Problem Nobody Is Talking About</span>
+            </div>
+            <div className="text-xs sm:text-[13px] text-slate-700 leading-relaxed font-medium whitespace-pre-line">
+              {formatInlineText(parsed.conflict)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Root Cause — ACT 4 */}
       {parsed.rootCause && (
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/40 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-violet-500" />
@@ -855,6 +954,17 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
           <p className="text-xs sm:text-[13px] text-slate-700 leading-relaxed text-justify font-medium">
             {formatInlineText(parsed.rootCause)}
           </p>
+        </div>
+      )}
+
+      {/* Turning Point Box — ACT 5 */}
+      {parsed.turningPoint && (
+        <div className="rounded-xl bg-slate-900 border border-slate-700 shadow-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/60 select-none">
+            <span className="text-base leading-none">⚡</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-300">The Numbers That Change Everything</span>
+          </div>
+          <pre className="px-4 py-3 text-[11px] sm:text-xs text-emerald-300 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap break-words">{parsed.turningPoint}</pre>
         </div>
       )}
 
@@ -1473,6 +1583,9 @@ function buildLocalFallbackResponse(prompt: string, campaigns: any[], activeClie
 export default function AIScreen() {
   const { scopedCampaigns: campaigns, activeClient, integrations, activeView, addPinnedWidget, scopedDashboards: dashboardsList } = useApp();
 
+  // Sidebar expand/collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   // Chart Edit/Pin States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
@@ -1486,6 +1599,7 @@ export default function AIScreen() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const loadedSessionIdRef = useRef<string | null>(null);
 
   // Start Renaming Chat Session Helper
   const startRenameSession = (id: string, currentTitle: string, e: React.MouseEvent) => {
@@ -1513,20 +1627,14 @@ export default function AIScreen() {
     const newSession = {
       id: 'session-' + Date.now(),
       title: 'New Chat',
-      messages: [
-        {
-          role: 'assistant',
-          content: activeClient
-            ? `Hello! I'm your AI analytics assistant for **${activeClient.name}**. I've reviewed your campaign performance metrics and have full insights ready.\n\nWhat would you like to explore today?`
-            : `Hello! I'm your AI marketing analyst for Venpep Agency. I've compiled campaign intelligence across your client accounts and have insights ready.\n\nWhat would you like to explore today?`,
-          createdAt: new Date().toISOString(),
-        }
-      ],
+      messages: [],
       createdAt: new Date().toISOString(),
     };
     const updated = [newSession, ...sessions];
     setSessions(updated);
     setActiveSessionId(newSession.id);
+    loadedSessionIdRef.current = newSession.id;
+    setMessages(newSession.messages);
     localStorage.setItem(`marketiq.chats.${tenantId}`, JSON.stringify(updated));
   };
 
@@ -1539,8 +1647,12 @@ export default function AIScreen() {
     if (activeSessionId === id) {
       if (updated.length > 0) {
         setActiveSessionId(updated[0].id);
+        loadedSessionIdRef.current = updated[0].id;
+        setMessages(updated[0].messages);
       } else {
         setActiveSessionId(null);
+        loadedSessionIdRef.current = null;
+        setMessages([]);
       }
     }
   };
@@ -1735,9 +1847,22 @@ export default function AIScreen() {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed && parsed.length > 0) {
-            setSessions(parsed);
-            setActiveSessionId(parsed[0].id);
-            setMessages(parsed[0].messages);
+            const cleaned = parsed.map((session: any) => ({
+              ...session,
+              messages: session.messages.map((msg: any) => {
+                if (msg.role === 'assistant' && msg.content) {
+                  return {
+                    ...msg,
+                    content: msg.content.replace(/\n\nWhat would you like to explore today\??/gi, '')
+                  };
+                }
+                return msg;
+              })
+            }));
+            setSessions(cleaned);
+            setActiveSessionId(cleaned[0].id);
+            loadedSessionIdRef.current = cleaned[0].id;
+            setMessages(cleaned[0].messages);
             setIsLoadingHistory(false);
             return;
           }
@@ -1745,34 +1870,37 @@ export default function AIScreen() {
 
         const history = await apiService.getChatHistory(tenantId);
         if (history && history.length > 0) {
+          const cleanedHistory = history.map((msg: any) => {
+            if (msg.role === 'assistant' && msg.content) {
+              return {
+                ...msg,
+                content: msg.content.replace(/\n\nWhat would you like to explore today\??/gi, '')
+              };
+            }
+            return msg;
+          });
           const initialSession = {
             id: 'session-db',
             title: 'Agency Performance Brief',
-            messages: history,
+            messages: cleanedHistory,
             createdAt: new Date().toISOString(),
           };
           setSessions([initialSession]);
           setActiveSessionId(initialSession.id);
-          setMessages(history);
+          loadedSessionIdRef.current = initialSession.id;
+          setMessages(cleanedHistory);
           localStorage.setItem(`marketiq.chats.${tenantId}`, JSON.stringify([initialSession]));
         } else {
           // Initialize with a friendly welcome message if no history exists
           const defaultSession = {
             id: 'session-default',
             title: 'New Chat',
-            messages: [
-              {
-                role: 'assistant',
-                content: activeClient
-                  ? `Hello! I'm your AI analytics assistant for **${activeClient.name}**. I've reviewed your campaign performance metrics and have full insights ready.\n\nWhat would you like to explore today?`
-                  : `Hello! I'm your AI marketing analyst for Venpep Agency. I've compiled campaign intelligence across your client accounts and have insights ready.\n\nWhat would you like to explore today?`,
-                createdAt: new Date().toISOString(),
-              }
-            ],
+            messages: [],
             createdAt: new Date().toISOString(),
           };
           setSessions([defaultSession]);
           setActiveSessionId(defaultSession.id);
+          loadedSessionIdRef.current = defaultSession.id;
           setMessages(defaultSession.messages);
           localStorage.setItem(`marketiq.chats.${tenantId}`, JSON.stringify([defaultSession]));
         }
@@ -1781,17 +1909,12 @@ export default function AIScreen() {
         const errorSession = {
           id: 'session-error',
           title: 'Offline Chat',
-          messages: [
-            {
-              role: 'assistant',
-              content: `Hello. I can still help with campaign analysis, but chat history could not be loaded. Ask for budget waste, scale opportunities, fatigue, CPC issues, or ROAS trends.`,
-              createdAt: new Date().toISOString(),
-            }
-          ],
+          messages: [],
           createdAt: new Date().toISOString(),
         };
         setSessions([errorSession]);
         setActiveSessionId(errorSession.id);
+        loadedSessionIdRef.current = errorSession.id;
         setMessages(errorSession.messages);
       } finally {
         setIsLoadingHistory(false);
@@ -1803,7 +1926,7 @@ export default function AIScreen() {
 
   // Sync messages back to active session and persist in localStorage
   useEffect(() => {
-    if (activeSessionId && messages.length > 0 && sessions.length > 0) {
+    if (activeSessionId && activeSessionId === loadedSessionIdRef.current && messages.length > 0 && sessions.length > 0) {
       const activeIdx = sessions.findIndex(s => s.id === activeSessionId);
       if (activeIdx !== -1) {
         const session = sessions[activeIdx];
@@ -1836,19 +1959,12 @@ export default function AIScreen() {
       const defaultSession = {
         id: 'session-default-' + Date.now(),
         title: 'New Chat',
-        messages: [
-          {
-            role: 'assistant',
-            content: activeClient
-              ? `Hello! I'm your AI analytics assistant for **${activeClient.name}**. I've reviewed your campaign performance metrics and have full insights ready.\n\nWhat would you like to explore today?`
-              : `Hello! I'm your AI marketing analyst for Venpep Agency. I've compiled campaign intelligence across your client accounts and have insights ready.\n\nWhat would you like to explore today?`,
-            createdAt: new Date().toISOString(),
-          }
-        ],
+        messages: [],
         createdAt: new Date().toISOString(),
       };
       setSessions([defaultSession]);
       setActiveSessionId(defaultSession.id);
+      loadedSessionIdRef.current = defaultSession.id;
       setMessages(defaultSession.messages);
       localStorage.setItem(`marketiq.chats.${tenantId}`, JSON.stringify([defaultSession]));
     }
@@ -1858,11 +1974,12 @@ export default function AIScreen() {
   useEffect(() => {
     if (activeSessionId && sessions.length > 0) {
       const active = sessions.find(s => s.id === activeSessionId);
-      if (active) {
+      if (active && loadedSessionIdRef.current !== activeSessionId) {
+        loadedSessionIdRef.current = activeSessionId;
         setMessages(active.messages);
       }
     }
-  }, [activeSessionId]);
+  }, [activeSessionId, sessions]);
 
   useEffect(() => {
     if (!isLoadingHistory && activeView === 'ai' && (window as any).shouldTriggerSummary) {
@@ -2020,8 +2137,8 @@ export default function AIScreen() {
             <button
               onClick={() => setAiPlatformFilter('meta')}
               className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${aiPlatformFilter === 'meta'
-                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
                 }`}
             >
               <MetaIcon />
@@ -2030,8 +2147,8 @@ export default function AIScreen() {
             <button
               onClick={() => setAiPlatformFilter('google')}
               className={`flex items-center justify-center px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border-0 ${aiPlatformFilter === 'google'
-                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
+                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-md font-extrabold'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 bg-transparent'
                 }`}
             >
               <GoogleAdsIcon />
@@ -2086,10 +2203,10 @@ export default function AIScreen() {
                 {actionQueue.map(item => (
                   <div key={item.id} className="rounded-xl border border-border bg-muted/10 p-3">
                     <div className={`mb-2 inline-flex rounded-full border px-2 py-0.5 text-[9px] font-extrabold uppercase ${item.priority === 'critical'
-                        ? 'border-rose-200 bg-rose-50 text-rose-700'
-                        : item.priority === 'warning'
-                          ? 'border-amber-200 bg-amber-50 text-amber-700'
-                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      ? 'border-rose-200 bg-rose-50 text-rose-700'
+                      : item.priority === 'warning'
+                        ? 'border-amber-200 bg-amber-50 text-amber-700'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'
                       }`}>
                       {item.priority}
                     </div>
@@ -2412,26 +2529,85 @@ export default function AIScreen() {
       <div className="h-[calc(100vh-6.5rem)] flex font-sans max-w-7xl mx-auto w-full select-none border border-slate-200 bg-white rounded-3xl shadow-sm overflow-hidden" style={{
         background: 'radial-gradient(100% 100% at 50% 0%, rgba(99, 102, 241, 0.01) 0%, rgba(255, 255, 255, 0) 100%)'
       }}>
-
-        {/* Chat History Left Sidebar (like Claude/ChatGPT/Gemini) */}
-        <div className="w-64 bg-slate-50/70 border-r border-slate-200/80 flex flex-col h-full flex-shrink-0 hidden md:flex overflow-hidden">
-          {/* New Chat Button */}
-          <div className="p-3.5 border-b border-slate-200/60 flex-shrink-0">
+        {/* Left Sidebar */}
+        <motion.div
+          animate={{ width: isSidebarCollapsed ? 64 : 256 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className="bg-slate-50/80 border-r border-slate-200 flex flex-col h-full shrink-0 overflow-hidden relative"
+        >
+          {/* Logo & Brand */}
+          <div className={`px-4 py-4 border-b border-slate-200 flex items-center justify-between gap-2.5 ${isSidebarCollapsed ? 'px-3' : ''}`}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="size-8 rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-650 to-pink-500 text-white flex items-center justify-center shadow-md shadow-indigo-500/10 shrink-0">
+                <Sparkles className="size-4.5 text-white" />
+              </div>
+              {!isSidebarCollapsed && (
+                <div>
+                  <span className="font-display font-extrabold text-xs text-slate-800 tracking-tight block leading-none">AI Brain</span>
+                  <span className="text-[9px] font-extrabold text-indigo-500 uppercase tracking-widest block mt-1"></span>
+                </div>
+              )}
+            </div>
             <button
-              onClick={createNewChat}
-              className="w-full flex items-center justify-center gap-2 h-10 px-4 bg-white border border-slate-200 hover:border-indigo-500/35 hover:text-indigo-650 rounded-xl text-xs font-bold text-slate-700 shadow-sm transition-all hover:scale-[1.01] hover:-translate-y-0.5 cursor-pointer"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-650 hover:bg-slate-200/50 border-0 bg-transparent cursor-pointer shrink-0 transition-colors"
             >
-              <Plus className="size-4 text-indigo-500" />
-              New chat
+              {isSidebarCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            </button>
+          </div>
+
+          {/* Search Box */}
+          <div className="px-3 py-2 flex-shrink-0 flex justify-center">
+            {isSidebarCollapsed ? (
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="relative flex items-center justify-center size-9 bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-sm transition-all cursor-pointer"
+              >
+                <Search className="size-3.5 text-slate-400" />
+              </button>
+            ) : (
+              <div className="relative flex items-center w-full bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-2.5 py-1.5 shadow-sm transition-all">
+                <Search className="size-3.5 text-slate-400 mr-2 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  className="w-full bg-transparent border-0 p-0 text-[11px] font-semibold text-slate-700 placeholder:text-slate-400 focus:ring-0 focus:outline-none"
+                />
+                <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 py-0.5 rounded text-[8px] font-extrabold text-slate-400 select-none cursor-default shrink-0">
+                  ⌘K
+                </kbd>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Items */}
+          <div className="px-2 py-1 space-y-0.5 border-b border-slate-200/50 flex-shrink-0">
+            <button className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2'} rounded-xl text-[11px] font-bold text-slate-600 hover:bg-slate-200/40 hover:text-slate-800 transition-colors border-0 bg-transparent cursor-pointer`}>
+              <Home className="size-3.5 text-slate-400" />
+              {!isSidebarCollapsed && <span>Home</span>}
+            </button>
+            <button className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2'} rounded-xl text-[11px] font-bold text-slate-650 hover:bg-slate-200/40 hover:text-slate-850 transition-colors border-0 bg-transparent cursor-pointer`}>
+              <Compass className="size-3.5 text-slate-400" />
+              {!isSidebarCollapsed && <span>Explore</span>}
+            </button>
+            <button className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2'} rounded-xl text-[11px] font-bold text-slate-650 hover:bg-slate-200/40 hover:text-slate-850 transition-colors border-0 bg-transparent cursor-pointer`}>
+              <BookOpen className="size-3.5 text-slate-400" />
+              {!isSidebarCollapsed && <span>Library</span>}
+            </button>
+            <button className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-3 px-3 py-2'} rounded-xl text-[11px] font-bold text-slate-650 hover:bg-slate-200/40 hover:text-slate-850 transition-colors border-0 bg-transparent cursor-pointer`}>
+              <HistoryIcon className="size-3.5 text-slate-400" />
+              {!isSidebarCollapsed && <span>History</span>}
             </button>
           </div>
 
           {/* Recent sessions scroll area */}
           <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
             <div className="space-y-1">
-              <div className="px-3 mb-2 text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
-                Recent Chats
-              </div>
+              {!isSidebarCollapsed && (
+                <div className="px-3 mb-2 text-[9px] font-extrabold uppercase tracking-widest text-slate-400">
+                  Recent Chats
+                </div>
+              )}
               {sessions.map(s => {
                 const isActive = s.id === activeSessionId;
                 const isEditing = s.id === editingSessionId;
@@ -2441,14 +2617,16 @@ export default function AIScreen() {
                     onClick={() => {
                       if (!isEditing) {
                         setActiveSessionId(s.id);
+                        loadedSessionIdRef.current = s.id;
+                        setMessages(s.messages);
                       }
                     }}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-[11px] cursor-pointer transition-all ${isActive
-                        ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-2 border-indigo-500'
-                        : 'text-slate-650 hover:bg-slate-200/40 hover:text-slate-800'
+                    className={`group flex items-center justify-between ${isSidebarCollapsed ? 'justify-center py-2.5' : 'px-3 py-2.5'} rounded-xl text-[11px] cursor-pointer transition-all ${isActive
+                      ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-2 border-indigo-500'
+                      : 'text-slate-600 hover:bg-slate-200/40 hover:text-slate-800'
                       }`}
                   >
-                    {isEditing ? (
+                    {isEditing && !isSidebarCollapsed ? (
                       <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                         <input
                           type="text"
@@ -2474,26 +2652,28 @@ export default function AIScreen() {
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <Sparkles className={`size-3.5 shrink-0 ${isActive ? 'text-indigo-500' : 'text-slate-400'}`} />
-                          <span className="truncate pr-1">{s.title}</span>
+                        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'gap-2.5 min-w-0 flex-1'}`}>
+                          <Sparkles className={`size-3.5 shrink-0 ${isActive ? 'text-indigo-500' : 'text-slate-450'}`} />
+                          {!isSidebarCollapsed && <span className="truncate pr-1">{s.title}</span>}
                         </div>
-                        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-all">
-                          <button
-                            onClick={(e) => startRenameSession(s.id, s.title, e)}
-                            title="Rename chat thread"
-                            className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border-0 bg-transparent cursor-pointer"
-                          >
-                            <Edit className="size-3" />
-                          </button>
-                          <button
-                            onClick={(e) => deleteSession(s.id, e)}
-                            title="Delete chat thread"
-                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-0 bg-transparent cursor-pointer"
-                          >
-                            <Trash2 className="size-3" />
-                          </button>
-                        </div>
+                        {!isSidebarCollapsed && (
+                          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-all">
+                            <button
+                              onClick={(e) => startRenameSession(s.id, s.title, e)}
+                              title="Rename chat thread"
+                              className="p-1 rounded text-slate-400 hover:text-indigo-650 hover:bg-indigo-50 border-0 bg-transparent cursor-pointer"
+                            >
+                              <Edit className="size-3" />
+                            </button>
+                            <button
+                              onClick={(e) => deleteSession(s.id, e)}
+                              title="Delete chat thread"
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-0 bg-transparent cursor-pointer"
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -2501,106 +2681,54 @@ export default function AIScreen() {
               })}
             </div>
           </div>
-        </div>
 
-        {/* Right Canvas: Conversational area */}
-        <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-white/30 backdrop-blur-md">
-
-          {/* Title Header Block - Styled like Claude/Gemini bar */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 px-4 sm:px-6 pt-4">
-            <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-650 to-pink-500 text-white shadow-glow relative select-none">
-                <div className="absolute inset-0 bg-indigo-500/20 blur-md rounded-xl animate-pulse" />
-                <Sparkles className="size-5 relative z-10" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="font-display text-lg sm:text-xl font-bold tracking-tight text-slate-800">AI Brain</h1>
-                  {activeClient && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-600">
-                      <span className="size-1.5 rounded-full bg-indigo-500 animate-pulse" /> {activeClient.name}
-                    </span>
-                  )}
+          {/* Profile Card Bottom Section */}
+          <div className="p-3 border-t border-slate-200 bg-slate-50 flex-shrink-0">
+            <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center p-1' : 'justify-between p-2'} rounded-xl bg-white border border-slate-200 shadow-sm`}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="size-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 border border-indigo-200 text-indigo-700 font-extrabold text-[11px] shadow-sm select-none">
+                  MA
                 </div>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-semibold leading-relaxed">Ask analyst questions and generate dynamic data visualizations</p>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-[10px] sm:text-xs font-bold text-emerald-600 select-none shadow-sm">
-              <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> Live Data Layer
-            </span>
-          </div>
-
-          {/* Sleek collapsable Workspace health panel */}
-          <div className="flex-shrink-0 px-4 sm:px-6 mb-3">
-            <div className="max-w-4xl mx-auto w-full">
-              <div className={`border rounded-2xl transition-all duration-300 shadow-sm overflow-hidden bg-white/70 backdrop-blur-md ${showHealthBrief
-                  ? 'border-slate-200 p-4 bg-slate-50/20'
-                  : 'border-slate-150/70 py-2.5 px-4 flex items-center justify-between hover:border-indigo-500/30'
-                }`}>
-                {!showHealthBrief ? (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="size-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <Cpu className="size-3.5" />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-slate-700">Workspace Health & Briefs</span>
-                        <span className="ml-2 text-[10px] text-slate-400 font-semibold hidden sm:inline">CPC benchmarks, budget waste, scale opportunities</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowHealthBrief(true)}
-                      className="flex items-center gap-1 text-[11px] font-extrabold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1.5 rounded-xl border-0 cursor-pointer transition-colors"
-                    >
-                      Show Briefs <ChevronDown className="size-3.5" />
-                    </button>
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="size-4.5 text-indigo-600" />
-                        <h3 className="text-xs font-bold text-slate-800">Workspace Performance Briefs</h3>
-                      </div>
-                      <button
-                        onClick={() => setShowHealthBrief(false)}
-                        className="flex items-center gap-1 text-[11px] font-extrabold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-xl border-0 cursor-pointer transition-colors"
-                      >
-                        Hide Briefs <ChevronDown className="size-3.5 rotate-180" />
-                      </button>
-                    </div>
-
-                    {/* Stat Bento cards with custom styling */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {[
-                        { label: "Decision scope", val: String(campaigns.length), subtitle: activeClient ? `${activeClient.name} campaigns` : 'Agency-wide campaigns' },
-                        { label: "Budget risk", val: formatInr(budgetAtRisk), subtitle: 'Zero-conversion spend to audit' },
-                        { label: "Scale pool", val: formatInr(scaleOpportunity), subtitle: `${scaleInsights.length} campaigns showing scale signals` },
-                      ].map((k, i) => (
-                        <div key={i} className="rounded-xl border border-slate-250 bg-white p-3.5 shadow-sm flex flex-col justify-between hover:border-indigo-500/25 transition-all">
-                          <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">{k.label}</div>
-                          <div className="mt-1 font-display text-lg font-extrabold text-slate-800">{k.val}</div>
-                          <div className="mt-0.5 text-[9px] text-slate-400 truncate">{k.subtitle}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                        <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Analyst brief</div>
-                        <p className="mt-1 text-[11px] font-semibold text-slate-600 leading-relaxed">
-                          Ask for decisions, not just charts: pause list, scale list, budget waste, fatigue, CPC outliers, ROAS ranking, and month-over-month movement.
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                        <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400">Benchmarks used</div>
-                        <p className="mt-1 text-[11px] font-semibold text-slate-600 leading-relaxed">
-                          CPC above {formatInr(BENCHMARKS.cpcCritical)}, frequency above {BENCHMARKS.frequencyWarning.toFixed(1)}, ROAS below {BENCHMARKS.roasWeak.toFixed(1)}x, and zero conversions after {formatInr(BENCHMARKS.wasteSpend)} are treated as action signals.
-                        </p>
-                      </div>
-                    </div>
+                {!isSidebarCollapsed && (
+                  <div className="min-w-0 leading-tight">
+                    <span className="font-bold text-[11px] text-slate-800 block truncate">Mahindra Admin</span>
+                    <span className="text-[9px] font-semibold text-slate-400 block truncate">mahindra@cai.media</span>
                   </div>
                 )}
+              </div>
+              {!isSidebarCollapsed && <ChevronDown className="size-4 text-slate-400 ml-2 cursor-pointer hover:text-slate-650 shrink-0" />}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Right Canvas: Conversational area */}
+        <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-white">
+          {/* Title Header Block - Styled like mockup */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 px-4 sm:px-6 pt-4">
+            {/* Model Selector styled exactly like the screenshot! */}
+            <div className="flex items-center gap-2.5">
+              <div className="relative">
+
+
+
+
+
+              </div>
+
+            </div>
+
+            {/* Top Right Actions */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={createNewChat}
+                className="flex items-center gap-1.5 h-9 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-bold shadow-md cursor-pointer transition-all hover:scale-[1.01]"
+              >
+                <Plus className="size-3.5 text-white" />
+                <span>New Chat</span>
+              </button>
+
+              <div className="size-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0 border border-indigo-200 text-indigo-700 font-extrabold text-[11px] shadow-sm select-none">
+                MA
               </div>
             </div>
           </div>
@@ -2612,136 +2740,183 @@ export default function AIScreen() {
                 {isLoadingHistory ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <RefreshCw className="size-6 text-indigo-500 animate-spin" />
-                    <span className="text-xs font-semibold text-slate-400">Loading analysis workspace...</span>
+                    <span className="text-xs font-semibold text-slate-400 font-sans">Loading analysis workspace...</span>
                   </div>
                 ) : (
-                  messages.map((msg, i) => {
-                    const isUser = msg.role === 'user';
-                    return (
-                      <motion.div
-                        key={msg.id || i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}
-                      >
-                        {/* Avatar */}
-                        <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm font-bold text-xs ${isUser
-                            ? 'bg-slate-100 border border-slate-200 text-slate-700'
+                  <>
+                    {messages.map((msg, i) => {
+                      const isUser = msg.role === 'user';
+                      return (
+                        <motion.div
+                          key={msg.id || i}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className={`flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`}
+                        >
+                          {/* Avatar */}
+                          <div className={`size-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm font-bold text-xs ${isUser
+                            ? 'bg-slate-100 border border-slate-205 text-slate-700'
                             : 'bg-gradient-to-tr from-violet-600 via-indigo-650 to-pink-500 text-white shadow-glow relative'
-                          }`}>
-                          {!isUser && <div className="absolute inset-0 bg-indigo-500/10 blur-sm rounded-xl animate-pulse" />}
-                          {isUser ? 'PM' : <Sparkles className="size-4 relative z-10" />}
-                        </div>
-
-                        {/* Content Bubble */}
-                        <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} w-full`}>
-                          <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser
-                              ? 'bg-slate-100 text-slate-800 border border-slate-200/60 rounded-tr-none shadow-sm text-justify font-medium'
-                              : 'text-slate-850 font-normal leading-relaxed text-justify pr-2 w-full'
                             }`}>
-                            {isUser ? (
-                              <p className="break-words">{msg.content}</p>
-                            ) : (
-                              <StructuredMessageRenderer content={msg.content} handleSend={handleSend} />
-                            )}
+                            {!isUser && <div className="absolute inset-0 bg-indigo-500/10 blur-sm rounded-xl animate-pulse" />}
+                            {isUser ? 'PM' : <Sparkles className="size-4 relative z-10" />}
                           </div>
 
-                          {/* If Assistant contains widget data, render it */}
-                          {!isUser && msg.widget && (
-                            <div className="w-full mt-2 min-w-[320px] max-w-full rounded-2xl border border-slate-150 bg-slate-50/40 p-4 shadow-sm space-y-3 animate-fade-in">
-                              <WidgetRenderer widget={msg.widget} />
-
-                              {/* Actions bar for the chart */}
-                              <div className="flex items-center gap-2 pt-2 border-t border-slate-200/50 justify-end select-none">
-                                <button
-                                  onClick={() => handleEditChart(msg, i)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-600 bg-white border border-slate-200 hover:border-indigo-500/35 hover:text-indigo-600 rounded-xl hover:shadow-sm transition-all cursor-pointer"
-                                >
-                                  <Settings className="size-3 text-slate-500" />
-                                  Edit Chart
-                                </button>
-                                <button
-                                  onClick={() => handlePinChart(msg.widget)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-600 bg-white border border-slate-200 hover:border-indigo-500/35 hover:text-indigo-600 rounded-xl hover:shadow-sm transition-all cursor-pointer"
-                                >
-                                  <Pin className="size-3 text-slate-500" />
-                                  Pin to Dashboard
-                                </button>
-                              </div>
+                          {/* Content Bubble */}
+                          <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} w-full`}>
+                            <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser
+                              ? 'bg-slate-900 text-white border border-slate-950 rounded-tr-none shadow-md text-justify font-medium'
+                              : 'text-slate-800 font-normal leading-relaxed text-justify pr-2 w-full border-l-2 border-indigo-500/20 pl-4'
+                              }`}>
+                              {isUser ? (
+                                <p className="break-words">{msg.content}</p>
+                              ) : (
+                                <StructuredMessageRenderer content={msg.content} handleSend={handleSend} />
+                              )}
                             </div>
-                          )}
 
-                          <span className="text-[9px] text-slate-400 font-medium select-none ml-1">
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                            {/* If Assistant contains widget data, render it */}
+                            {!isUser && msg.widget && (
+                              <div className="w-full mt-2 min-w-[320px] max-w-full rounded-2xl border border-slate-150 bg-slate-50/40 p-4 shadow-sm space-y-3 animate-fade-in">
+                                <WidgetRenderer widget={msg.widget} />
+
+                                {/* Actions bar for the chart */}
+                                <div className="flex items-center gap-2 pt-2 border-t border-slate-200/50 justify-end select-none">
+                                  <button
+                                    onClick={() => handleEditChart(msg, i)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-600 bg-white border border-slate-200 hover:border-indigo-500/35 hover:text-indigo-600 rounded-xl hover:shadow-sm transition-all cursor-pointer"
+                                  >
+                                    <Settings className="size-3 text-slate-500" />
+                                    Edit Chart
+                                  </button>
+                                  <button
+                                    onClick={() => handlePinChart(msg.widget)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-slate-650 bg-white border border-slate-200 hover:border-indigo-500/35 hover:text-indigo-600 rounded-xl hover:shadow-sm transition-all cursor-pointer"
+                                  >
+                                    <Pin className="size-3 text-slate-550" />
+                                    Pin to Dashboard
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <span className="text-[9px] text-slate-400 font-medium select-none ml-1">
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+
+                    {/* Sparkling Welcome Hero Hub if no messages */}
+                    {messages.length <= 1 && !isTyping && (
+                      <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 max-w-2xl mx-auto text-center space-y-7 animate-fade-in select-none relative z-10 w-full">
+                        {/* Floating Glowing Background Aura */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] bg-gradient-to-tr from-violet-500/10 via-indigo-550/8 to-pink-500/10 blur-[80px] rounded-full pointer-events-none z-0 animate-pulse" />
+
+                        {/* Redesigned Welcome Logo Container (w-40 h-40) */}
+                        <div className="relative w-40 h-40 mx-auto select-none flex items-center justify-center z-10">
+                          {/* Inject CSS keyframes for custom particle orbiting */}
+                          <style dangerouslySetInnerHTML={{__html: `
+                            @keyframes orbit {
+                              from { transform: rotate(0deg); }
+                              to { transform: rotate(360deg); }
+                            }
+                            .particle-orbit {
+                              animation: orbit 6s linear infinite;
+                            }
+                          `}} />
+
+                          {/* OUTER HALO: Large static soft circle */}
+                          <div className="absolute w-48 h-48 rounded-full bg-indigo-500/[0.08] blur-2xl pointer-events-none z-0" />
+
+                          {/* PULSE CORE: Pulsing radial glow (2s) */}
+                          <div 
+                            className="absolute w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-500/30 to-cyan-400/30 blur-xl animate-pulse" 
+                            style={{ animationDuration: '2s' }}
+                          />
+
+                          {/* ENERGY RINGS: 3D sphere illusion with tilted ellipses */}
+                          {/* Ellipse Ring 1: 20deg tilt, spins clockwise (10s) */}
+                          <div className="absolute w-[124px] h-[48px] origin-center pointer-events-none" style={{ transform: 'rotate(20deg)' }}>
+                            <div 
+                              className="w-full h-full rounded-full border border-indigo-400/30 animate-spin" 
+                              style={{ animationDuration: '10s' }}
+                            />
+                          </div>
+
+                          {/* Ellipse Ring 2: -20deg tilt, counter-spins (14s) */}
+                          <div className="absolute w-[124px] h-[48px] origin-center pointer-events-none" style={{ transform: 'rotate(-20deg)' }}>
+                            <div 
+                              className="w-full h-full rounded-full border border-indigo-400/30 animate-spin" 
+                              style={{ animationDuration: '14s', animationDirection: 'reverse' }}
+                            />
+                          </div>
+
+                          {/* PARTICLE SYSTEM: 6 orbiting dots (6s) */}
+                          <div className="absolute w-0 h-0 flex items-center justify-center particle-orbit pointer-events-none z-20">
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]" style={{ transform: 'rotate(0deg) translate(52px)' }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.8)]" style={{ transform: 'rotate(60deg) translate(52px)' }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]" style={{ transform: 'rotate(120deg) translate(52px)' }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.8)]" style={{ transform: 'rotate(180deg) translate(52px)' }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]" style={{ transform: 'rotate(240deg) translate(52px)' }} />
+                            <div className="absolute w-1.5 h-1.5 rounded-full bg-violet-500 shadow-[0_0_6px_rgba(139,92,246,0.8)]" style={{ transform: 'rotate(300deg) translate(52px)' }} />
+                          </div>
+
+                          {/* CENTER: Custom Brain SVG with indigo-to-cyan gradient */}
+                          <svg viewBox="0 0 100 100" className="w-16 h-16 relative z-10 select-none pointer-events-none filter drop-shadow-[0_4px_12px_rgba(99,102,241,0.15)]">
+                            <defs>
+                              <linearGradient id="brainGradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#6366f1" /> {/* indigo-500 */}
+                                <stop offset="100%" stopColor="#06b6d4" /> {/* cyan-500 */}
+                              </linearGradient>
+                            </defs>
+                            {/* Left Hemisphere */}
+                            <path
+                              d="M48 20 C36 20 28 28 28 38 C22 38 18 43 18 50 C18 57 23 62 29 62 C29 69 36 75 45 75 C47 75 48 74 48 74 Z"
+                              fill="url(#brainGradCyan)"
+                            />
+                            {/* Right Hemisphere */}
+                            <path
+                              d="M52 20 C64 20 72 28 72 38 C78 38 82 43 82 50 C82 57 77 62 71 62 C71 69 64 75 55 75 C53 75 52 74 52 74 Z"
+                              fill="url(#brainGradCyan)"
+                            />
+                            {/* Neural lines inside */}
+                            <path d="M38 32 C42 35 45 32 46 28" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M30 45 Q38 48 45 42" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M32 55 Q40 54 44 48" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M38 68 C42 65 44 60 45 55" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M62 32 C58 35 55 32 54 28" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M70 45 Q62 48 55 42" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M68 55 Q60 54 56 48" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            <path d="M62 68 C58 65 56 60 55 55" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.75" />
+                            
+                            {/* Glossy highlight at top-left */}
+                            <ellipse cx="38" cy="28" rx="7" ry="3.5" transform="rotate(-30 38 28)" fill="white" opacity="0.35" />
+                          </svg>
                         </div>
-                      </motion.div>
-                    );
-                  })
+
+                        {/* Greetings Header styled exactly like the screenshot */}
+                        <div className="space-y-1.5 z-10">
+                          <h2 className="text-3xl font-extrabold tracking-tight text-slate-800"
+                            style={{ fontFamily: "'Poppins', sans-serif" }}>
+                            Good afternoon Venpep
+                          </h2>
+                          <h3 className="text-xl font-bold tracking-tight text-slate-500 font-sans">
+                            How Can I <span className="text-indigo-600 font-extrabold">Assist You Today?</span>
+                          </h3>
+                        </div>
+
+
+
+
+                      </div>
+                    )}
+                  </>
                 )}
               </AnimatePresence>
-
-              {/* Sparkling Welcome Hero Hub if no messages */}
-              {messages.length <= 1 && !isTyping && (
-                <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 max-w-2xl mx-auto text-center space-y-8 animate-fade-in select-none">
-                  {/* Sparkling Logo Container */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full animate-pulse" />
-                    <div className="relative size-14 rounded-2xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                      <Sparkles className="size-7" />
-                    </div>
-                  </div>
-
-                  {/* Hero Heading */}
-                  <div className="space-y-3">
-                    <h2 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-600 via-indigo-600 to-pink-500 bg-clip-text text-transparent py-1">
-                      {activeClient
-                        ? `Optimize ${activeClient.name}'s Portfolio`
-                        : "Command your campaign metrics."}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium max-w-md leading-relaxed">
-                      I can help pause underperforming channels, scale high-converting ad sets, detect critical frequency fatigue, and generate visual SQL charts instantly.
-                    </p>
-                  </div>
-
-                  {/* Symmetrical starter cards */}
-                  <div className="w-full space-y-3">
-                    <div className="text-[9px] uppercase tracking-widest font-extrabold text-slate-400 text-left px-1">
-                      Recommended starting actions
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {QUICK_CHIPS.map((chip, idx) => {
-                        let icon = <Sparkles className="size-3.5 text-indigo-500" />;
-                        if (idx === 0) icon = <Pause className="size-3.5 text-rose-500" />;
-                        if (idx === 1) icon = <Trash2 className="size-3.5 text-rose-500" />;
-                        if (idx === 2) icon = <TrendingUp className="size-3.5 text-emerald-500" />;
-                        if (idx === 3) icon = <Zap className="size-3.5 text-amber-500" />;
-                        if (idx === 4) icon = <AlertTriangle className="size-3.5 text-rose-500" />;
-                        if (idx === 5) icon = <Cpu className="size-3.5 text-violet-500" />;
-
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => handleSend(chip)}
-                            className="group flex items-start gap-3 p-4 bg-white/70 hover:bg-white border border-slate-200/60 hover:border-indigo-500/35 rounded-2xl text-left shadow-sm hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-                          >
-                            <div className="p-2 rounded-xl bg-slate-50 group-hover:bg-indigo-50/50 border border-slate-100 group-hover:border-indigo-100 flex-shrink-0 transition-colors">
-                              {icon}
-                            </div>
-                            <div className="space-y-0.5 min-w-0">
-                              <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-650 leading-snug line-clamp-2">
-                                {chip}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Bouncing Typing Indicator */}
               {isTyping && (
@@ -2770,7 +2945,7 @@ export default function AIScreen() {
                         className="size-1.5 bg-indigo-500 rounded-full"
                       />
                     ))}
-                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1">MIP AI Brain is thinking...</span>
+                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1 font-sans">MIP AI Brain is thinking...</span>
                   </div>
                 </div>
               )}
@@ -2779,58 +2954,31 @@ export default function AIScreen() {
           </div>
 
           {/* Sticky bottom input floating capsule container */}
-          <div className="border-t border-slate-100/40 p-4 bg-gradient-to-t from-white via-white/95 to-transparent flex-shrink-0 sticky bottom-0 z-20">
+          <div className="border-t border-slate-200/60 p-4 bg-gradient-to-t from-white via-white/95 to-transparent flex-shrink-0 sticky bottom-0 z-20">
             <div className="max-w-3xl w-full mx-auto">
 
-              {/* Quick chips if conversation is starting (shows above input pill only on sm devices) */}
-              {messages.length > 1 && messages.length <= 3 && !isTyping && (
-                <div className="mb-3.5 select-none hidden sm:block">
-                  <div className="text-[9px] font-extrabold uppercase tracking-widest text-slate-400 mb-2 px-1">Quick analysis followups</div>
-                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-                    {QUICK_CHIPS.slice(0, 4).map((chip, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSend(chip)}
-                        className="text-[11px] px-3.5 py-1.5 border border-slate-200 bg-white hover:border-indigo-500/30 rounded-full hover:shadow-sm cursor-pointer transition-all text-slate-650 hover:text-indigo-600 font-semibold"
-                      >
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Modern elevated capsule input box */}
-              <div className="flex items-end gap-3 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-md focus-within:shadow-lg focus-within:border-indigo-500/60 focus-within:ring-4 focus-within:ring-indigo-500/5 transition-all">
-                <button
-                  onClick={handleClearHistory}
-                  title="Clear Conversation History"
-                  className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer transition-all flex-shrink-0 border border-transparent"
-                >
-                  <Trash2 className="size-4.5" />
-                </button>
 
+              {/* Modern elevated capsule input box matching welcome screen style */}
+              <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl p-2.5 shadow-md focus-within:shadow-[0_12px_40px_rgb(99,102,241,0.06)] focus-within:border-indigo-550/60 transition-all">
+                <Sparkles className="size-4 text-indigo-550 shrink-0" />
                 <textarea
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={activeClient ? `Ask me about ${activeClient.name}'s data (e.g. CPC outliers, fatigue, zero conversions)...` : "Ask me anything about client campaign databases..."}
                   rows={1}
-                  className="flex-1 max-h-24 min-h-[2.25rem] bg-transparent border-0 focus:ring-0 focus:outline-none text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 py-2.5 px-1 resize-none font-sans leading-relaxed"
+                  className="flex-1 max-h-24 min-h-[2.25rem] bg-transparent border-0 focus:ring-0 focus:outline-none text-xs sm:text-sm text-slate-800 placeholder:text-slate-455 py-1.5 px-0 resize-none font-sans leading-relaxed"
                 />
-
                 <button
                   onClick={() => handleSend()}
                   disabled={!input.trim()}
-                  className="size-9 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-650 text-white flex items-center justify-center hover:shadow-glow disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed cursor-pointer transition-all border-0 shrink-0 hover:scale-105 active:scale-95"
+                  className="size-9 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-650 to-pink-500 text-white flex items-center justify-center hover:shadow-glow shadow-md disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed cursor-pointer transition-all border-0 shrink-0 hover:scale-[1.03] active:scale-95"
                 >
                   <Send className="size-4" />
                 </button>
               </div>
 
-              <div className="text-[9px] text-slate-400 mt-2 text-center select-none font-medium">
-                Press <kbd className="font-mono bg-slate-100 border border-slate-200 px-1 py-0.5 rounded text-[8px] font-bold">Ctrl + Enter</kbd> to submit query
-              </div>
             </div>
           </div>
 
