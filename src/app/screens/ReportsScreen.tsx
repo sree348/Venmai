@@ -1,13 +1,27 @@
 import { useApp } from '../context/AppContext';
-import { Plus, FileText, RefreshCw, Users, Clock, Download, Edit } from 'lucide-react';
+import { Plus, FileText, RefreshCw, Users, Clock, Download, Edit, Copy, Loader2 } from 'lucide-react';
 import PageWrapper from '../components/shared/PageWrapper';
 import ClientAvatar from '../components/shared/ClientAvatar';
 import { downloadReportDocx } from '../../services/report-docx.service';
 import { formatInr, getAlerts, getCampaignScope, getPerformanceSummary, getRecommendations } from '../../services/insights.service';
+import { apiService } from '../../services/api.service';
+import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
+
+type GeneratedReport = {
+  id: string;
+  name: string;
+  createdAt: string;
+  downloadUrl: string;
+  shareLink: string;
+  expiresAt: string;
+};
 
 export default function ReportsScreen() {
   const { setShowReportModal, campaigns, integrations } = useApp();
   const { CLIENTS: clients } = useApp() as any;
+  const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>([]);
+  const [loadingGeneratedReports, setLoadingGeneratedReports] = useState(false);
 
   const reports = [
     { id: 1, clientId: 'cai_mahindra', name: 'CAI Mahindra — Weekly Lead Gen digest', frequency: 'Weekly', lastSent: '3 days ago', recipients: 3, status: 'active' },
@@ -24,9 +38,67 @@ export default function ReportsScreen() {
   const allAlerts = getAlerts(campaigns, clients);
   const allRecommendations = getRecommendations(campaigns, clients, integrations);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadGeneratedReports = async () => {
+      try {
+        setLoadingGeneratedReports(true);
+        const result = await apiService.listAgencyReports();
+        if (!cancelled) {
+          setGeneratedReports(result.reports || []);
+        }
+      } catch (error) {
+        console.error('Failed to load generated reports:', error);
+      } finally {
+        if (!cancelled) {
+          setLoadingGeneratedReports(false);
+        }
+      }
+    };
+
+    loadGeneratedReports();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleDownload = (report: any, client: any) => {
     const reportCampaigns = getCampaignScope(campaigns, client?.id);
     downloadReportDocx({ report, client, campaigns: reportCampaigns, integrations });
+  };
+
+  const handleDownloadGenerated = async (report: GeneratedReport) => {
+    try {
+      const response = await fetch(report.downloadUrl, {
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_AUTH_TOKEN || ''}`,
+          'x-tenant-id': apiService.tenantId,
+        },
+      });
+      if (!response.ok) throw new Error('Report download failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${report.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.docx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download generated report:', error);
+      toast.error('Could not download this report.');
+    }
+  };
+
+  const handleCopyShareLink = async (report: GeneratedReport) => {
+    try {
+      await navigator.clipboard.writeText(report.shareLink);
+      toast.success('Share link copied');
+    } catch {
+      toast.error('Could not copy share link.');
+    }
   };
 
   return (
@@ -52,6 +124,46 @@ export default function ReportsScreen() {
             <p className="text-[11px] text-slate-400">{item.sub}</p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Generated Reports</h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">Backend-generated DOCX reports with authenticated download and 7-day share links.</p>
+          </div>
+          {loadingGeneratedReports && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
+        </div>
+        {generatedReports.length === 0 ? (
+          <div className="px-5 py-5 text-xs text-slate-500">
+            No generated reports yet. Generate an agency report from the overview page to create report history.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {generatedReports.map(report => (
+              <div key={report.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-50 flex-shrink-0">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-slate-900 truncate">{report.name}</p>
+                  <div className="flex flex-wrap items-center gap-3 mt-0.5 text-[10px] text-slate-400">
+                    <span>Generated {new Date(report.createdAt).toLocaleString('en-IN')}</span>
+                    <span>Share expires {new Date(report.expiresAt).toLocaleDateString('en-IN')}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => handleDownloadGenerated(report)} className="w-8 h-8 border border-slate-200 rounded-lg hover:bg-white flex items-center justify-center cursor-pointer bg-white" title="Download generated DOCX">
+                    <Download className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                  <button onClick={() => handleCopyShareLink(report)} className="w-8 h-8 border border-slate-200 rounded-lg hover:bg-white flex items-center justify-center cursor-pointer bg-white" title="Copy share link">
+                    <Copy className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {groupedReports.map(({ client, items }: any) => (

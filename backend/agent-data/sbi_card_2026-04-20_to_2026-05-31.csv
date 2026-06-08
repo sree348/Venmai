@@ -1,0 +1,2 @@
+date,tenant_id,client_id,platform,campaign_id,campaign_name,campaign_type,spend,impressions,clicks,reach,frequency,ctr,cpc,cpm,conversions,action_value,roas,status
+"2026-05-15","agency","sbi_card","Google Ads","g_camp_sbi_search","SBI Cashback Card - Search high-intent","LEAD_GEN","25000","320000","28800","180000","1.78","9","0.8680555555555556","78.125","1420","0","3.8","active"

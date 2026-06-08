@@ -1,0 +1,2 @@
+date,tenant_id,client_id,platform,campaign_id,campaign_name,campaign_type,spend,impressions,clicks,reach,frequency,ctr,cpc,cpm,conversions,action_value,roas,status
+"2026-05-15","agency","zoomcar","Google Ads","g_camp_zoom_search","Zoomcar Rentals - Google Search Weekend","LEAD_GEN","18000","210000","14700","120000","1.75","7.000000000000001","1.2244897959183674","85.71428571428571","890","0","4.1","active"

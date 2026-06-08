@@ -8,6 +8,8 @@ import { SystemMessage } from '@langchain/core/messages';
 import * as docx from 'docx';
 import { prisma } from '../services/prisma.service.js';
 import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { query } from '../services/db.service.js';
+import { ensureReportBreakdownTables } from '../services/report-breakdowns.service.js';
 
 const {
   Document,
@@ -74,6 +76,120 @@ function createTableCell(text: string, options: {
     ],
   });
 }
+
+// GET /api/v1/agency/report-breakdowns?clientId=&dateFrom=&dateTo=
+reportRouter.get('/agency/report-breakdowns', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const tenantId = String(req.auth!.tenantId || 'agency');
+    const clientId = String(req.query.clientId || 'cai_mahindra');
+    const dateFrom = String(req.query.dateFrom || '2026-05-01');
+    const dateTo = String(req.query.dateTo || '2026-05-31');
+    await ensureReportBreakdownTables();
+
+    const locations = await query<{ name: string; leads: number; impressions: number; clicks: number; reach: number }>(
+      `
+        SELECT
+          region AS name,
+          SUM(conversions)::INTEGER AS leads,
+          SUM(impressions)::INTEGER AS impressions,
+          SUM(clicks)::INTEGER AS clicks,
+          SUM(reach)::INTEGER AS reach
+        FROM campaign_location_breakdowns
+        WHERE tenant_id = $1
+          AND ($2::TEXT = '' OR client_id = $2)
+          AND date >= $3::TIMESTAMPTZ
+          AND date <= $4::TIMESTAMPTZ
+        GROUP BY region
+        HAVING SUM(conversions) > 0 OR SUM(clicks) > 0 OR SUM(impressions) > 0
+        ORDER BY leads DESC, clicks DESC, impressions DESC
+        LIMIT 12
+      `,
+      [tenantId, clientId, dateFrom, dateTo],
+    );
+
+    const ageGroups = await query<{ name: string; leads: number; impressions: number; clicks: number; reach: number }>(
+      `
+        SELECT
+          age AS name,
+          SUM(conversions)::INTEGER AS leads,
+          SUM(impressions)::INTEGER AS impressions,
+          SUM(clicks)::INTEGER AS clicks,
+          SUM(reach)::INTEGER AS reach
+        FROM campaign_demographic_breakdowns
+        WHERE tenant_id = $1
+          AND ($2::TEXT = '' OR client_id = $2)
+          AND date >= $3::TIMESTAMPTZ
+          AND date <= $4::TIMESTAMPTZ
+        GROUP BY age
+        HAVING SUM(conversions) > 0 OR SUM(clicks) > 0 OR SUM(impressions) > 0
+        ORDER BY
+          CASE age
+            WHEN '18-24' THEN 1
+            WHEN '25-34' THEN 2
+            WHEN '35-44' THEN 3
+            WHEN '45-54' THEN 4
+            WHEN '55-64' THEN 5
+            WHEN '65+' THEN 6
+            ELSE 7
+          END
+      `,
+      [tenantId, clientId, dateFrom, dateTo],
+    );
+
+    const genders = await query<{ name: string; leads: number; impressions: number; clicks: number; reach: number }>(
+      `
+        SELECT
+          gender AS name,
+          SUM(conversions)::INTEGER AS leads,
+          SUM(impressions)::INTEGER AS impressions,
+          SUM(clicks)::INTEGER AS clicks,
+          SUM(reach)::INTEGER AS reach
+        FROM campaign_demographic_breakdowns
+        WHERE tenant_id = $1
+          AND ($2::TEXT = '' OR client_id = $2)
+          AND date >= $3::TIMESTAMPTZ
+          AND date <= $4::TIMESTAMPTZ
+        GROUP BY gender
+        HAVING SUM(conversions) > 0 OR SUM(clicks) > 0 OR SUM(impressions) > 0
+        ORDER BY leads DESC, clicks DESC, impressions DESC
+      `,
+      [tenantId, clientId, dateFrom, dateTo],
+    );
+
+    return res.json({ locations, ageGroups, genders, leadStatus: null });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// GET /api/v1/agency/reports
+reportRouter.get('/agency/reports', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const tenantId = String(req.auth!.tenantId || 'agency');
+    const reports = await prisma.agencyReport.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+    });
+
+    const origin = `${req.protocol}://${req.get('host')}`;
+    return res.json({
+      reports: reports.map(report => {
+        const createdAt = new Date(report.createdAt);
+        return {
+          id: report.id,
+          name: `MarketIQ Agency Report - ${createdAt.toLocaleDateString('en-IN')}`,
+          createdAt: report.createdAt,
+          downloadUrl: `${origin}/api/v1/agency/report/${report.id}/download`,
+          shareLink: `${origin}/api/v1/agency/report/share/${report.shareToken}`,
+          expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+      }),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // POST /api/v1/agency/report
 reportRouter.post('/agency/report', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {

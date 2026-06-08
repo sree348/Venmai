@@ -343,9 +343,35 @@ function AppShell() {
       <ReportModal
         show={showReportModal}
         onClose={() => setShowReportModal(false)}
-        onSave={(report: any) => {
-          setShowReportModal(false);
-          toast.success(`Report "${report.name}" is ready to generate and download.`);
+        onSave={async (report: any) => {
+          try {
+            const generated = await apiService.generateAgencyReport();
+            const response = await fetch(generated.downloadUrl, {
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_AUTH_TOKEN || ''}`,
+                'x-tenant-id': apiService.tenantId,
+              },
+            });
+
+            if (!response.ok) throw new Error('File download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `${report.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.docx`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            window.URL.revokeObjectURL(url);
+
+            setShowReportModal(false);
+            toast.success(`Report "${report.name}" generated and downloaded.`);
+          } catch (error) {
+            console.error('Report generation failed:', error);
+            toast.error('Report generation failed. Try again.');
+            throw error;
+          }
         }}
       />
       <InviteModal show={showInviteModal} onClose={() => setShowInviteModal(false)} />

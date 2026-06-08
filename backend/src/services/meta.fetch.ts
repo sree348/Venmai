@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { prisma } from './prisma.service.js';
+import { query } from './db.service.js';
 import { emitDataReady } from './realtime.service.js';
 import { runBrainAnalysis } from '../jobs/brain.job.js';
-import { AI_BRAIN_DATE_WINDOW } from './ai-brain.service.js';
+import { AI_BRAIN_DATE_WINDOW, exportAgentDataSnapshotsForTenant } from './ai-brain.service.js';
+import { invalidateVerifiedCampaignContextCache } from './agent.service.js';
+import { ensureReportBreakdownTables } from './report-breakdowns.service.js';
 
 const GRAPH_BASE_URL = 'https://graph.facebook.com/v19.0';
 
@@ -22,6 +25,9 @@ type MetaInsight = {
   date_start: string;
   campaign_id: string;
   campaign_name: string;
+  age?: string;
+  gender?: string;
+  region?: string;
   spend?: string;
   impressions?: string;
   clicks?: string;
@@ -106,6 +112,7 @@ export async function fetchAndStoreCampaigns(tenantId: string) {
 
   let upsertCount = 0;
   const range = getDateRange();
+  await ensureReportBreakdownTables();
 
   for (const adAccount of activeAdAccounts) {
     await prisma.metaConnection.update({
@@ -185,6 +192,40 @@ export async function fetchAndStoreCampaigns(tenantId: string) {
 
         upsertCount += 1;
       }
+
+      try {
+        const demographicResponse = await graphGet<{ data: MetaInsight[] }>(`${campaign.id}/insights`, {
+          fields: 'campaign_id,campaign_name,spend,impressions,clicks,reach,actions',
+          breakdowns: 'age,gender',
+          time_range: JSON.stringify(range),
+          time_increment: 1,
+          access_token: connection.accessToken,
+        });
+
+        for (const insight of demographicResponse.data) {
+          const campaignName = insight.campaign_name || campaign.name;
+          await upsertDemographicBreakdown(tenantId, getClientIdFromCampaignName(campaignName), insight, campaign);
+        }
+      } catch (breakdownErr: any) {
+        console.warn(`[MetaSync] demographic breakdown skipped for campaign ${campaign.id}:`, breakdownErr?.response?.data?.error?.message || breakdownErr?.message || breakdownErr);
+      }
+
+      try {
+        const locationResponse = await graphGet<{ data: MetaInsight[] }>(`${campaign.id}/insights`, {
+          fields: 'campaign_id,campaign_name,spend,impressions,clicks,reach,actions',
+          breakdowns: 'region',
+          time_range: JSON.stringify(range),
+          time_increment: 1,
+          access_token: connection.accessToken,
+        });
+
+        for (const insight of locationResponse.data) {
+          const campaignName = insight.campaign_name || campaign.name;
+          await upsertLocationBreakdown(tenantId, getClientIdFromCampaignName(campaignName), insight, campaign);
+        }
+      } catch (breakdownErr: any) {
+        console.warn(`[MetaSync] location breakdown skipped for campaign ${campaign.id}:`, breakdownErr?.response?.data?.error?.message || breakdownErr?.message || breakdownErr);
+      }
     }
   }
 
@@ -194,8 +235,89 @@ export async function fetchAndStoreCampaigns(tenantId: string) {
     console.error(`AI Brain background analysis failed for tenant ${tenantId}:`, brainErr);
   }
 
+  try {
+    const snapshots = await exportAgentDataSnapshotsForTenant(tenantId);
+    invalidateVerifiedCampaignContextCache(tenantId);
+    console.log(`[MetaSync] refreshed ${snapshots.length} agent data snapshot(s) for tenant ${tenantId}`);
+  } catch (snapshotErr) {
+    console.error(`Agent data snapshot refresh failed after Meta sync for tenant ${tenantId}:`, snapshotErr);
+  }
+
   emitDataReady(tenantId, upsertCount);
   return { tenantId, count: upsertCount };
+}
+
+async function upsertDemographicBreakdown(tenantId: string, clientId: string | null, insight: MetaInsight, fallbackCampaign: MetaCampaign) {
+  const campaignName = insight.campaign_name || fallbackCampaign.name;
+  await query(
+    `
+      INSERT INTO campaign_demographic_breakdowns (
+        tenant_id, client_id, date, platform, campaign_id, campaign_name, age, gender,
+        impressions, clicks, reach, conversions, spend, updated_at
+      )
+      VALUES ($1,$2,$3,'meta',$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+      ON CONFLICT (tenant_id, date, campaign_id, age, gender)
+      DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        campaign_name = EXCLUDED.campaign_name,
+        impressions = EXCLUDED.impressions,
+        clicks = EXCLUDED.clicks,
+        reach = EXCLUDED.reach,
+        conversions = EXCLUDED.conversions,
+        spend = EXCLUDED.spend,
+        updated_at = NOW()
+    `,
+    [
+      tenantId,
+      clientId,
+      dateOnly(insight.date_start),
+      insight.campaign_id || fallbackCampaign.id,
+      campaignName,
+      insight.age || 'unknown',
+      insight.gender || 'unknown',
+      toInt(insight.impressions),
+      toInt(insight.clicks),
+      toInt(insight.reach),
+      extractConversions(insight.actions),
+      toNumber(insight.spend),
+    ],
+  );
+}
+
+async function upsertLocationBreakdown(tenantId: string, clientId: string | null, insight: MetaInsight, fallbackCampaign: MetaCampaign) {
+  const campaignName = insight.campaign_name || fallbackCampaign.name;
+  await query(
+    `
+      INSERT INTO campaign_location_breakdowns (
+        tenant_id, client_id, date, platform, campaign_id, campaign_name, region,
+        impressions, clicks, reach, conversions, spend, updated_at
+      )
+      VALUES ($1,$2,$3,'meta',$4,$5,$6,$7,$8,$9,$10,$11,NOW())
+      ON CONFLICT (tenant_id, date, campaign_id, region)
+      DO UPDATE SET
+        client_id = EXCLUDED.client_id,
+        campaign_name = EXCLUDED.campaign_name,
+        impressions = EXCLUDED.impressions,
+        clicks = EXCLUDED.clicks,
+        reach = EXCLUDED.reach,
+        conversions = EXCLUDED.conversions,
+        spend = EXCLUDED.spend,
+        updated_at = NOW()
+    `,
+    [
+      tenantId,
+      clientId,
+      dateOnly(insight.date_start),
+      insight.campaign_id || fallbackCampaign.id,
+      campaignName,
+      insight.region || 'unknown',
+      toInt(insight.impressions),
+      toInt(insight.clicks),
+      toInt(insight.reach),
+      extractConversions(insight.actions),
+      toNumber(insight.spend),
+    ],
+  );
 }
 
 export async function fetchMetaAdSets(tenantId: string, campaignId: string) {

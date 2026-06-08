@@ -22,6 +22,7 @@ interface AgentState {
   pageContext: PageContext | null;
   toggle: () => void;
   addMessage: (msg: ChatMessage) => void;
+  updateMessage: (id: string, updates: Partial<ChatMessage>) => void;
   clearMessages: () => void;
   setPageContext: (ctx: PageContext) => void;
   setIsLoading: (loading: boolean) => void;
@@ -41,6 +42,11 @@ export const useAgentStore = create<AgentState>()(
     pageContext: null,
     toggle: () => set((state) => ({ isOpen: !state.isOpen })),
     addMessage: (msg) => set((state) => ({ messages: [...state.messages, msg] })),
+    updateMessage: (id, updates) => set((state) => ({
+      messages: state.messages.map(message =>
+        message.id === id ? { ...message, ...updates } : message
+      ),
+    })),
     clearMessages: () => set({ messages: [] }),
     setPageContext: (ctx) => set({ pageContext: ctx }),
     setIsLoading: (loading) => set({ isLoading: loading }),

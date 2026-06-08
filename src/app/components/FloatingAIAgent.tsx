@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { Sparkles, Send, X, Trash2, Cpu } from 'lucide-react';
+import { Check, ClipboardPaste, Copy, Sparkles, Send, X, Trash2, Cpu } from 'lucide-react';
 import { useAgentStore, ChatMessage } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
 import { apiService } from '../../services/api.service';
@@ -27,17 +27,17 @@ const PAGE_NAME_MAPPINGS: Record<string, string> = {
 const getChipsForPage = (page: string | undefined): string[] => {
   switch (page) {
     case 'agency_overview':
-      return ["Summarize performance", "Which client needs attention?", "Show budget at risk"];
+      return ["Summarize performance", "Show budget at risk", "Which client needs attention?", "Generate client report"];
     case 'campaigns':
-      return ["Which campaign wastes budget?", "Worst CPC campaign?", "Frequency fatigue?"];
+      return ["Which campaign wastes budget?", "Worst CPC campaign?", "Any anomalies this week?", "New campaign idea for Q3"];
     case 'ai_brain':
-      return ["Biggest risk today?", "What should I scale?", "Summarize all insights"];
+      return ["Biggest risk today?", "What should I scale?", "Detect anomalies in my data", "Forecast next week's spend"];
     case 'analytics':
-      return ["Compare platforms", "This month vs last month?", "Best performing platform?"];
+      return ["Compare platforms", "This month vs last month?", "What is a good CPL?", "Explain ROAS in simple terms"];
     case 'ai_analysis':
-      return ["Top 5 campaigns by spend", "Worst CPC?", "Zero conversion campaigns?"];
+      return ["Top 5 campaigns by spend", "Worst CPC?", "Zero conversion campaigns?", "Funnel strategy for new launch"];
     default:
-      return ["Summarize performance", "Show budget at risk", "Biggest risk today?"];
+      return ["Summarize performance", "Any anomalies detected?", "What is a good CPL?", "New campaign funnel idea"];
   }
 };
 
@@ -49,6 +49,7 @@ export default function FloatingAIAgent() {
     pageContext, 
     toggle, 
     addMessage, 
+    updateMessage,
     clearMessages, 
     setIsLoading,
     setPageContext
@@ -57,6 +58,7 @@ export default function FloatingAIAgent() {
   const { activeClient } = useApp();
   const location = useLocation();
   const [input, setInput] = useState('');
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
 
@@ -113,6 +115,53 @@ export default function FloatingAIAgent() {
   const pageFriendlyName = pageContext?.page ? (PAGE_NAME_MAPPINGS[pageContext.page] || pageContext.page) : 'General';
   const quickChips = getChipsForPage(pageContext?.page);
 
+  const copyMessageToClipboard = async (content: string, index: number) => {
+    if (!content?.trim()) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      setCopiedMessageIndex(index);
+      toast.success('Copied to clipboard');
+      window.setTimeout(() => setCopiedMessageIndex(current => current === index ? null : current), 1800);
+    } catch (error) {
+      console.error('Failed to copy AI Agent message:', error);
+      toast.error('Could not copy this message.');
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.readText) {
+        toast.error('Clipboard paste is not available in this browser.');
+        return;
+      }
+
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText.trim()) {
+        toast.info('Clipboard is empty.');
+        return;
+      }
+
+      setInput(current => current.trim() ? `${current}\n${clipboardText}` : clipboardText);
+      toast.success('Pasted from clipboard');
+    } catch (error) {
+      console.error('Failed to paste into AI Agent input:', error);
+      toast.error('Allow clipboard access to paste here.');
+    }
+  };
+
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || isLoading) return;
 
@@ -136,17 +185,41 @@ export default function FloatingAIAgent() {
           content: m.content,
         }));
 
-      // 3. Make POST call to chat API (passing history & pageContext)
-      const res = await apiService.chat(textToSend.trim(), clientId, historyPayload, pageContext);
+      const botMessageId = `assistant-${Date.now()}`;
+      let streamedContent = '';
+      let finalPayload: any = null;
 
-      // 4. Add AI response to store
       const botMsg: ChatMessage = {
+        id: botMessageId,
         role: 'assistant',
-        content: res.insight || res.widget?.insight || 'I analyzed the data, but no response details were computed.',
-        widget: res.widget || null,
+        content: '',
+        widget: null,
         createdAt: new Date().toISOString(),
       };
       addMessage(botMsg);
+
+      await apiService.streamChat(textToSend.trim(), clientId, historyPayload, pageContext, {
+        onToken: (token) => {
+          streamedContent += token;
+          updateMessage(botMessageId, { content: streamedContent });
+        },
+        onDone: (payload) => {
+          finalPayload = payload;
+          updateMessage(botMessageId, {
+            content: payload.insight || streamedContent || payload.widget?.insight || 'I analyzed the data, but no response details were computed.',
+            widget: payload.widget || null,
+          });
+        },
+        onError: (error) => {
+          throw error;
+        },
+      });
+
+      if (!finalPayload && !streamedContent) {
+        updateMessage(botMessageId, {
+          content: 'I analyzed the data, but no response details were computed.',
+        });
+      }
     } catch (err: any) {
       console.error('Failed to get AI Agent response:', err);
       toast.error('AI assistant failed to analyze the screen.');
@@ -280,15 +353,44 @@ export default function FloatingAIAgent() {
                         <Sparkles className="w-3.5 h-3.5" />
                       </div>
                     )}
-                    <div
-                      className={`px-3.5 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-sm max-w-[80%] whitespace-pre-wrap select-text selection:bg-indigo-200 ${
-                        isAi
-                          ? 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-sm'
-                          : 'bg-[#6366F1] text-white rounded-tr-sm'
-                      }`}
-                    >
-                      {msg.content}
-                    
+                    <div className={`flex flex-col gap-1.5 max-w-[80%] ${isAi ? 'items-start' : 'items-end'}`}>
+                      <div
+                        className={`px-3.5 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-sm w-full whitespace-pre-wrap select-text selection:bg-indigo-200 ${
+                          isAi
+                            ? 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-sm'
+                            : 'bg-[#6366F1] text-white rounded-tr-sm'
+                        }`}
+                      >
+                        {isAi ? (
+                          msg.content ? (
+                            msg.content
+                          ) : (
+                            <span className="text-slate-400">Thinking...</span>
+                          )
+                        ) : msg.content}
+                      </div>
+                      {isAi && msg.content && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => copyMessageToClipboard(msg.content, index)}
+                            className="inline-flex items-center gap-1 h-7 px-2 rounded-lg border border-slate-200 bg-white text-[9px] font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
+                            aria-label="Copy AI Brain response"
+                          >
+                            {copiedMessageIndex === index ? (
+                              <>
+                                <Check className="size-3" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="size-3" />
+                                Copy
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -321,6 +423,16 @@ export default function FloatingAIAgent() {
                 className="flex-1 min-w-0 resize-none max-h-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#6366F1] focus:bg-white transition-all placeholder-slate-400 font-sans"
               />
               <button
+                type="button"
+                onClick={pasteFromClipboard}
+                className="size-8 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 flex items-center justify-center hover:border-[#6366F1]/40 hover:bg-indigo-50 hover:text-[#6366F1] active:scale-95 transition-all cursor-pointer flex-shrink-0"
+                aria-label="Paste from clipboard"
+                title="Paste from clipboard"
+              >
+                <ClipboardPaste className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
                 onClick={() => handleSendMessage(input)}
                 disabled={isLoading || !input.trim()}
                 className="size-8 rounded-xl bg-gradient-to-br from-[#6366F1] to-[#8B5CF6] flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed border-0 cursor-pointer flex-shrink-0"

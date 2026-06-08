@@ -10,12 +10,14 @@ import { apiService } from '../../services/api.service';
 import { 
   ResponsiveContainer, AreaChart, Area, CartesianGrid, 
   XAxis, YAxis, Tooltip, BarChart, Bar, Cell, PieChart, Pie,
-  RadialBarChart, RadialBar, Legend
+  RadialBarChart, RadialBar, Legend, LabelList, Line, ComposedChart
 } from 'recharts';
 import PageWrapper from '../components/shared/PageWrapper';
 import { useState, useEffect } from 'react';
 import { useAgentStore } from '../../stores/agentStore';
 import { parseTargetingFromName } from '../../services/mock-data';
+import { downloadReportPptx } from '../../services/report-pptx.service';
+import { Document, ImageRun, Packer, Paragraph } from 'docx';
 
 // Spend vs Conversions Trend Mock Data mapped to screenshot trajectory
 const spendConversionsTrend = [
@@ -48,6 +50,7 @@ export default function AgencyOverviewScreen() {
   const [dateFrom, setDateFrom] = useState('2026-05-01');
   const [dateTo, setDateTo] = useState('2026-05-31');
   const [isReportGenerated, setIsReportGenerated] = useState(false);
+  const [reportBreakdowns, setReportBreakdowns] = useState<any>({ locations: [], ageGroups: [], genders: [], leadStatus: null });
 
   const [trendData, setTrendData] = useState<any[]>([]);
   const [loadingTrend, setLoadingTrend] = useState(true);
@@ -91,6 +94,28 @@ export default function AgencyOverviewScreen() {
       cancelled = true;
     };
   }, [timeRange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!showCustomReportsModal || !isReportGenerated) return;
+
+    apiService.getAgencyReportBreakdowns({ clientId: 'cai_mahindra', dateFrom, dateTo })
+      .then(data => {
+        if (!cancelled) {
+          setReportBreakdowns(data);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load report breakdowns:', error);
+        if (!cancelled) {
+          setReportBreakdowns({ locations: [], ageGroups: [], genders: [], leadStatus: null });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showCustomReportsModal, isReportGenerated, dateFrom, dateTo]);
 
   const activeTrendData = trendData.length > 0 ? trendData : spendConversionsTrend;
 
@@ -832,6 +857,7 @@ export default function AgencyOverviewScreen() {
           isReportGenerated={isReportGenerated}
           setIsReportGenerated={setIsReportGenerated}
           campaigns={campaigns}
+          reportBreakdowns={reportBreakdowns}
         />
       )}
     </PageWrapper>
@@ -974,7 +1000,8 @@ function CustomReportsModalOverlay({
   setDateTo,
   isReportGenerated,
   setIsReportGenerated,
-  campaigns
+  campaigns,
+  reportBreakdowns
 }: {
   onClose: () => void;
   reportTab: 'passenger' | 'commercial';
@@ -986,6 +1013,7 @@ function CustomReportsModalOverlay({
   isReportGenerated: boolean;
   setIsReportGenerated: (g: boolean) => void;
   campaigns: any[];
+  reportBreakdowns: any;
 }) {
   // Date formatting helper
   const formatDate = (dateString: string) => {
@@ -1080,18 +1108,251 @@ function CustomReportsModalOverlay({
   const commImp = commercialCamps.reduce((s, c) => s + Number(c.impressions || 0), 0);
   const commClicks = commercialCamps.reduce((s, c) => s + Number(c.clicks || 0), 0);
   const commLeads = commercialCamps.reduce((s, c) => s + Number(c.conv || c.conversions || 0), 0);
+  const exportCamps = reportTab === 'passenger' ? passengerCamps : commercialCamps;
+  const exportSpend = exportCamps.reduce((s, c) => s + Number(c.spend || c.amount_spent || 0), 0);
+  const exportClicks = exportCamps.reduce((s, c) => s + Number(c.clicks || 0), 0);
+  const exportImpressions = exportCamps.reduce((s, c) => s + Number(c.impressions || 0), 0);
+  const exportReach = exportCamps.reduce((s, c) => s + Number(c.reach || 0), 0);
+  const exportLeads = exportCamps.reduce((s, c) => s + Number(c.conv || c.conversions || 0), 0);
+  const exportKpis = {
+    totalSpend: exportSpend,
+    totalConversions: exportLeads,
+    totalClicks: exportClicks,
+    avgCtr: exportImpressions > 0 ? (exportClicks / exportImpressions) * 100 : 0,
+    avgCpc: exportClicks > 0 ? exportSpend / exportClicks : 0,
+    avgCpm: exportImpressions > 0 ? (exportSpend / exportImpressions) * 1000 : 0,
+  };
+  const exportPlatformMap = exportCamps.reduce((acc: any, c: any) => {
+    const name = String(c.platform || c.channel || 'Meta');
+    if (!acc[name]) acc[name] = { name, spend: 0, impressions: 0, reach: 0, clicks: 0, cpc: 0 };
+    acc[name].spend += Number(c.spend || c.amount_spent || 0);
+    acc[name].impressions += Number(c.impressions || 0);
+    acc[name].reach += Number(c.reach || 0);
+    acc[name].clicks += Number(c.clicks || 0);
+    acc[name].cpc = acc[name].clicks > 0 ? acc[name].spend / acc[name].clicks : 0;
+    return acc;
+  }, {});
+  const exportPlatformData = Object.values(exportPlatformMap);
+  const exportTableAdsData = exportCamps.map((c: any) => ({
+    ad_name: c.name || c.campaignName || 'Campaign',
+    ad_format: c.ad_format || 'Campaign',
+    amount_spent: Number(c.spend || c.amount_spent || 0),
+    ctr: Number(c.ctr || 0),
+    cpc: Number(c.clicks || 0) > 0 ? Number(c.spend || c.amount_spent || 0) / Number(c.clicks || 0) : Number(c.cpc || 0),
+    frequency: Number(c.frequency || 0),
+  }));
+
+  const reportExportMeta = {
+    name: `CAI Mahindra ${reportTab} Report ${formatDate(dateFrom)} - ${formatDate(dateTo)}`,
+    frequency: 'One-time',
+  };
+  const reportClient = {
+    id: 'cai_mahindra',
+    name: 'CAI Mahindra',
+  };
+  const exportIntegrations: any[] = [
+    { name: 'Meta Ads', connected: fbPassCamps.length > 0 || commercialCamps.length > 0 },
+    { name: 'Google Ads', connected: ggPassCamps.length > 0 },
+  ];
+
+  const inlineComputedStyles = (sourceNode: Element, cloneNode: Element) => {
+    const sourceElements = [sourceNode, ...Array.from(sourceNode.querySelectorAll('*'))];
+    const cloneElements = [cloneNode, ...Array.from(cloneNode.querySelectorAll('*'))];
+
+    sourceElements.forEach((sourceElement, index) => {
+      const cloneElement = cloneElements[index] as HTMLElement | SVGElement | undefined;
+      if (!cloneElement) return;
+      const computed = window.getComputedStyle(sourceElement);
+      const styleText = Array.from(computed)
+        .map(property => `${property}:${computed.getPropertyValue(property)};`)
+        .join('');
+      cloneElement.setAttribute('style', styleText);
+    });
+  };
+
+  const dataUrlToUint8Array = (dataUrl: string) => {
+    const base64 = dataUrl.split(',')[1] || '';
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  };
+
+  const renderPrintableReportAsImages = async (sourceNode: HTMLElement) => {
+    const clone = sourceNode.cloneNode(true) as HTMLElement;
+    inlineComputedStyles(sourceNode, clone);
+    clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+
+    const rect = sourceNode.getBoundingClientRect();
+    const width = Math.ceil(Math.max(sourceNode.scrollWidth, rect.width, 794));
+    const height = Math.ceil(Math.max(sourceNode.scrollHeight, rect.height, 1123));
+    const scale = 2;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <foreignObject width="100%" height="100%">
+        ${clone.outerHTML}
+      </foreignObject>
+    </svg>`;
+
+    const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Could not render report image.'));
+        img.src = svgUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas is not available.');
+
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0, width, height);
+
+      const pageHeight = Math.floor(canvas.width * 1.414);
+      const pages: Array<{ src: string; width: number; height: number }> = [];
+      for (let y = 0; y < canvas.height; y += pageHeight) {
+        const sliceHeight = Math.min(pageHeight, canvas.height - y);
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sliceHeight;
+        const pageCtx = pageCanvas.getContext('2d');
+        if (!pageCtx) continue;
+        pageCtx.fillStyle = '#ffffff';
+        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        pageCtx.drawImage(canvas, 0, y, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+        pages.push({
+          src: pageCanvas.toDataURL('image/png'),
+          width: pageCanvas.width,
+          height: pageCanvas.height,
+        });
+      }
+
+      return pages;
+    } finally {
+      URL.revokeObjectURL(svgUrl);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    const printable = document.getElementById('printable-report');
+    if (!printable) {
+      toast.error('Report content is not ready.');
+      return;
+    }
+
+    try {
+      const pageImages = await renderPrintableReportAsImages(printable);
+      const doc = new Document({
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: { top: 360, right: 360, bottom: 360, left: 360 },
+              },
+            },
+            children: pageImages.map((page, index) => {
+              const imageWidth = 720;
+              const imageHeight = Math.round(imageWidth * (page.height / page.width));
+              return new Paragraph({
+                pageBreakBefore: index > 0,
+                children: [
+                  new ImageRun({
+                    data: dataUrlToUint8Array(page.src),
+                    transformation: {
+                      width: imageWidth,
+                      height: imageHeight,
+                    },
+                  }),
+                ],
+              });
+            }),
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${reportExportMeta.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.docx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      return;
+    } catch (error) {
+      console.error('Image-based Word export failed, falling back to HTML export:', error);
+      const clone = printable.cloneNode(true) as HTMLElement;
+      inlineComputedStyles(printable, clone);
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${reportExportMeta.name}</title>
+  <style>
+    @page { size: A4 portrait; margin: 0.5cm; }
+    body { margin: 0; font-family: Arial, sans-serif; color: #0f172a; }
+    table { border-collapse: collapse; width: 100%; }
+    svg { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>${clone.outerHTML}</body>
+</html>`;
+      const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${reportExportMeta.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.doc`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleDownloadPptx = async () => {
+    await downloadReportPptx({
+      report: reportExportMeta,
+      client: reportClient,
+      campaigns: exportCamps,
+      integrations: exportIntegrations,
+      kpis: exportKpis,
+      platformData: exportPlatformData,
+      tableAdsData: exportTableAdsData,
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-[150] overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 md:p-10 report-modal-overlay">
       {/* Inject Print Stylesheet inline */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 0.5cm;
+          }
+
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           /* Hide non-printable elements */
           body {
             background: white !important;
             color: black !important;
           }
-          #root, .no-print, header, nav, aside, footer, button, .modal-close-btn, .action-bar-print {
+          .no-print, header, nav, aside, footer, button, .modal-close-btn, .action-bar-print {
             display: none !important;
           }
           
@@ -1141,11 +1402,12 @@ function CustomReportsModalOverlay({
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          
-          @page {
-            size: A4 portrait;
-            margin: 1.5cm;
+
+          .print-cover-section {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
+          
         }
       `}} />
 
@@ -1231,10 +1493,28 @@ function CustomReportsModalOverlay({
                   onClick={() => window.print()}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white shadow-md cursor-pointer border-0 transition-all hover:scale-[1.01]"
                 >
-                  <Download className="size-3.5 text-white" /> Download as PDF
+                  <Download className="size-3.5 text-white" /> PDF
+                </button>
+                <button
+                  onClick={handleDownloadDocx}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-xs font-bold text-slate-800 shadow-sm cursor-pointer border border-slate-250 transition-all hover:scale-[1.01]"
+                >
+                  <FileText className="size-3.5 text-slate-700" /> DOCX
+                </button>
+                <button
+                  onClick={handleDownloadPptx}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white hover:bg-slate-100 text-xs font-bold text-slate-800 shadow-sm cursor-pointer border border-slate-250 transition-all hover:scale-[1.01]"
+                >
+                  <Briefcase className="size-3.5 text-slate-700" /> PPT
                 </button>
               </div>
             </div>
+            <button
+              onClick={() => window.print()}
+              className="fixed top-4 right-4 z-[200] inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white shadow-lg cursor-pointer border-0 transition-all no-print"
+            >
+              <Download className="size-3.5 text-white" /> Download PDF
+            </button>
             
             {/* Printable Report Page Sheet */}
             <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-white scrollbar-thin">
@@ -1262,6 +1542,9 @@ function CustomReportsModalOverlay({
                     fbImp={fbPassImp} fbReach={fbPassReach} fbClicks={fbPassClicks} fbLeads={fbPassLeads}
                     ggImp={ggPassImp} ggReach={ggPassReach} ggClicks={ggPassClicks} ggLeads={ggPassLeads}
                     totImp={totalPassImp} totReach={totalPassReach} totClicks={totalPassClicks} totLeads={totalPassLeads}
+                    dateFrom={dateFrom} dateTo={dateTo} campaignCount={parsedCaiCampaigns.length}
+                    googleCalls={ggPassCamps.reduce((s, c) => s + Number(c.calls || c.call_clicks || c.phone_calls || 0), 0)}
+                    breakdowns={reportBreakdowns}
                   />
                 )}
                 {reportTab === 'commercial' && (
@@ -1291,6 +1574,371 @@ function CustomReportsModalOverlay({
 // REPORT TAB VIEWS (PASSENGER, COMMERCIAL, BRANDING)
 // ═══════════════════════════════════════════════════════════════════════════════
 function PassengerReportView({
+  fbImp, fbReach, fbClicks, fbLeads,
+  ggImp, ggReach, ggClicks, ggLeads,
+  totImp, totReach, totClicks, totLeads,
+  dateFrom, dateTo, campaignCount = 0, googleCalls = 0, breakdowns = {}
+}: any) {
+  const fmtNum = (value: number) => Number(value || 0) > 0 ? Number(value).toLocaleString('en-IN') : '—';
+  const fmtPct = (value: number | null) => value !== null && Number.isFinite(value) && value > 0 ? `${value.toFixed(2)}%` : '—';
+  const cvr = (leads: number, clicks: number) => clicks > 0 && leads > 0 ? (leads / clicks) * 100 : null;
+  const pctOf = (part: number, total: number) => total > 0 && part > 0 ? (part / total) * 100 : null;
+  const deltaPct = (current: number, previous: number) => previous > 0 ? ((current - previous) / previous) * 100 : 0;
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const momLeadData = [
+    { name: 'Mar', Leads: 165 },
+    { name: 'Apr', Leads: 163 },
+    { name: 'May', Leads: totLeads || 222 }
+  ];
+  const leadLocationsData = Array.isArray(breakdowns.locations)
+    ? breakdowns.locations.map((item: any) => ({
+      name: item.name || item.region || 'Unknown',
+      Leads: Number(item.leads || item.conversions || 0),
+      Clicks: Number(item.clicks || 0),
+      Impressions: Number(item.impressions || 0),
+    })).filter((item: any) => item.Leads > 0 || item.Clicks > 0 || item.Impressions > 0)
+    : [];
+  const hasLocationLeads = leadLocationsData.some((item: any) => item.Leads > 0);
+  const locationMetric = hasLocationLeads ? 'Leads' : 'Clicks';
+  const locationMetricTotal = leadLocationsData.reduce((sum: number, item: any) => sum + Number(item[locationMetric] || 0), 0);
+  const rawGenderData = Array.isArray(breakdowns.genders)
+    ? breakdowns.genders.map((item: any) => ({ name: String(item.name || item.gender || 'Unknown'), leads: Number(item.leads || item.conversions || 0) })).filter((item: any) => item.leads > 0)
+    : [];
+  const genderTotal = rawGenderData.reduce((sum: number, item: any) => sum + item.leads, 0);
+  const genderData = rawGenderData.map((item: any, idx: number) => ({
+    name: item.name.charAt(0).toUpperCase() + item.name.slice(1),
+    value: genderTotal > 0 ? (item.leads / genderTotal) * 100 : 0,
+    leads: item.leads,
+    fill: idx === 0 ? '#D32F2F' : '#E2E8F0'
+  }));
+  const ageGroupData = Array.isArray(breakdowns.ageGroups)
+    ? breakdowns.ageGroups.map((item: any) => ({ name: item.name || item.age || 'Unknown', Leads: Number(item.leads || item.conversions || 0) })).filter((item: any) => item.Leads > 0)
+    : [];
+  const productComparisonData = [
+    { name: 'Thar Roxx', April: 10, May: 25 },
+    { name: 'Thar', April: 18, May: 22 },
+    { name: '3XO', April: 30, May: 45 },
+    { name: 'Bolero', April: 15, May: 12 },
+    { name: 'XUV700', April: 25, May: 32 },
+    { name: 'Bolero Neo', April: 12, May: 10 },
+    { name: 'Scorpio N', April: 22, May: 28 },
+    { name: 'Scorpio', April: 14, May: 18 },
+    { name: 'XEV 9E', April: 8, May: 15 },
+    { name: 'BE6', April: 5, May: 10 },
+    { name: 'XEV 9S', April: 4, May: 5 }
+  ].sort((a, b) => b.May - a.May);
+
+  const currentMonth = momLeadData[momLeadData.length - 1];
+  const previousMonth = momLeadData[momLeadData.length - 2];
+  const momDelta = deltaPct(currentMonth.Leads, previousMonth.Leads);
+  const topCities = [...leadLocationsData].sort((a, b) => Number(b[locationMetric] || 0) - Number(a[locationMetric] || 0));
+  const topCity = topCities[0] || null;
+  const secondCity = topCities[1] || null;
+  const topCityPct = topCity ? pctOf(Number(topCity[locationMetric] || 0), locationMetricTotal) : null;
+  const secondCityPct = secondCity ? pctOf(Number(secondCity[locationMetric] || 0), locationMetricTotal) : null;
+  const dominantGender = [...genderData].sort((a, b) => b.value - a.value)[0] || null;
+  const genderCounts = genderData.map(item => ({ ...item, leads: item.leads ?? Math.round((item.value / 100) * (totLeads || 0)) }));
+  const topAge = [...ageGroupData].sort((a, b) => b.Leads - a.Leads)[0] || null;
+  const primaryAgeGroupLeads = ageGroupData.filter(item => item.name === '25-34' || item.name === '35-44').reduce((sum, item) => sum + item.Leads, 0);
+  const primaryAgeGroupPct = pctOf(primaryAgeGroupLeads, totLeads);
+  const maxMayLeads = Math.max(...productComparisonData.map(item => item.May));
+  const droppedModels = productComparisonData
+    .map(item => ({ ...item, drop: deltaPct(item.May, item.April) }))
+    .filter(item => item.drop < -30);
+
+  const recommendations = [
+    ...(cvr(fbLeads, fbClicks) !== null && Number(cvr(fbLeads, fbClicks)) < 5 ? [`Refresh Meta ad creatives and test carousel format — Meta CVR is ${fmtPct(cvr(fbLeads, fbClicks))} from ${fmtNum(fbLeads)} leads and ${fmtNum(fbClicks)} clicks.`] : []),
+    ...(ggLeads < 20 && cvr(ggLeads, ggClicks) !== null ? [`Increase Google Search budget — CVR is strong at ${fmtPct(cvr(ggLeads, ggClicks))} but Google has only ${fmtNum(ggLeads)} leads.`] : []),
+    ...droppedModels.slice(0, 2).map(item => `Review ${item.name} campaign — leads dropped ${Math.abs(item.drop).toFixed(1)}% from ${fmtNum(item.April)} in April to ${fmtNum(item.May)} in May.`),
+    ...(topCity && topCityPct !== null && topCityPct > 40 ? [`Concentrate geo-targeting on ${topCity.name} for next month — it generated ${fmtNum(Number(topCity[locationMetric] || 0))} ${locationMetric.toLowerCase()}, ${topCityPct.toFixed(1)}% of tracked location ${locationMetric.toLowerCase()}.`] : []),
+    `Prioritize ${productComparisonData[0].name} scale-up — it leads May product demand with ${fmtNum(productComparisonData[0].May)} leads, up ${deltaPct(productComparisonData[0].May, productComparisonData[0].April).toFixed(1)}% MoM.`,
+    `Request lead status update from CAI team — current status: Nil for ${fmtNum(totLeads)} total passenger leads.`
+  ].slice(0, 6);
+
+  while (recommendations.length < 3) {
+    const fallbackAction = topCity && secondCity
+      ? `Use ${topCity.name} and ${secondCity.name} as priority geos — together they contributed ${fmtNum(Number(topCity[locationMetric] || 0) + Number(secondCity[locationMetric] || 0))} ${locationMetric.toLowerCase()}.`
+      : `Keep report location, age, and gender sections marked unavailable until Meta breakdown sync returns rows for ${formatDate(dateFrom)} – ${formatDate(dateTo)}.`;
+    recommendations.splice(recommendations.length - 1, 0, fallbackAction);
+  }
+
+  const FunnelBlock = ({ title, color, shades, impressions, reach, clicks, leads }: any) => {
+    const steps = [
+      { label: 'Impressions', value: impressions, pct: 100, note: 'Base' },
+      { label: 'Reach', value: reach, pct: pctOf(reach, impressions), note: impressions > 0 && reach > 0 ? `${fmtPct(pctOf(reach, impressions))} of impressions` : '—' },
+      { label: 'Clicks', value: clicks, pct: pctOf(clicks, reach || impressions), note: reach > 0 ? `${fmtPct(pctOf(clicks, reach))} of reach` : `${fmtPct(pctOf(clicks, impressions))} of impressions` },
+      { label: 'Leads', value: leads, pct: cvr(leads, clicks), note: `${fmtPct(cvr(leads, clicks))} CVR`, final: true },
+    ];
+
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="text-xs font-black uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
+        <div className="space-y-3">
+          {steps.map((step, idx) => {
+            const width = step.pct !== null ? Math.max(8, Math.min(100, Number(step.pct))) : 8;
+            return (
+              <div key={step.label}>
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1">
+                  <span>{step.label}</span>
+                  <span>{fmtNum(step.value)} <span className="text-slate-400 font-semibold">({step.note})</span></span>
+                </div>
+                <div className="h-5 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: `${width}%`, background: step.final ? '#D32F2F' : shades[idx] }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-8 text-slate-800 font-sans">
+      <section className="print-cover-section rounded-xl overflow-hidden bg-[#D32F2F] text-white min-h-[160px] p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div>
+          <div className="inline-flex px-3 py-1 rounded-full bg-white text-[#D32F2F] text-[10px] font-black uppercase tracking-widest mb-3">Executive Report</div>
+          <h1 className="text-[28px] leading-tight font-black tracking-tight">CAI MAHINDRA + VENPEP GROUP</h1>
+          <p className="text-xs font-semibold text-white/80 mt-2">Passenger campaign performance review</p>
+        </div>
+        <div className="md:text-right">
+          <div className="text-[10px] font-black uppercase tracking-widest text-white/70">Report Period</div>
+          <div className="text-base font-black mt-1">{formatDate(dateFrom)} – {formatDate(dateTo)}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+            {[
+              ['Total Leads', fmtNum(totLeads)],
+              ['Total Impressions', fmtNum(totImp)],
+              ['Total Clicks', fmtNum(totClicks)],
+              ['Campaigns', fmtNum(campaignCount)],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-full bg-white/15 border border-white/25 px-3 py-2 text-center">
+                <div className="text-[9px] uppercase font-black text-white/70">{label}</div>
+                <div className="text-xs font-black">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="space-y-2 print-avoid-break">
+        <h2 className="text-sm font-bold text-slate-900 border-l-4 border-red-600 pl-2 uppercase tracking-wide">Overall Performance Summary</h2>
+        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-[#111] text-white font-black uppercase tracking-wider">
+                {['Channel', 'Impressions', 'Reach', 'Clicks', 'Leads', 'CVR', 'Calls'].map(header => (
+                  <th key={header} className={`py-3 px-3 ${header !== 'Channel' ? 'text-right' : ''}`}>{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="font-medium">
+              <tr className="border-l-4 border-[#1877F2] border-b border-slate-100">
+                <td className="py-2.5 px-3 font-bold">Facebook (Meta)</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(fbImp)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(fbReach)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(fbClicks)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(fbLeads)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtPct(cvr(fbLeads, fbClicks))}</td>
+                <td className="py-2.5 px-3 text-right">—</td>
+              </tr>
+              <tr className="border-l-4 border-[#34A853] border-b border-slate-100">
+                <td className="py-2.5 px-3 font-bold">Google</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(ggImp)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(ggReach)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(ggClicks)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(ggLeads)}</td>
+                <td className="py-2.5 px-3 text-right">{fmtPct(cvr(ggLeads, ggClicks))}</td>
+                <td className="py-2.5 px-3 text-right">{fmtNum(googleCalls)}</td>
+              </tr>
+              <tr className="bg-[#FFF8E1] font-black border-l-4 border-[#D32F2F]">
+                <td className="py-3 px-3">Total</td>
+                <td className="py-3 px-3 text-right">{fmtNum(totImp)}</td>
+                <td className="py-3 px-3 text-right">{fmtNum(totReach)}</td>
+                <td className="py-3 px-3 text-right">{fmtNum(totClicks)}</td>
+                <td className="py-3 px-3 text-right">{fmtNum(totLeads)}</td>
+                <td className="py-3 px-3 text-right">{fmtPct(cvr(totLeads, totClicks))}</td>
+                <td className="py-3 px-3 text-right">{fmtNum(googleCalls)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="space-y-3 print-avoid-break">
+        <h2 className="text-sm font-bold text-slate-900 border-l-4 border-red-600 pl-2 uppercase tracking-wide">Performance Funnel Metrics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FunnelBlock title="Meta Funnel" color="#1877F2" shades={['#1877F2', '#4B91F1', '#7BAEF4', '#D32F2F']} impressions={fbImp} reach={fbReach} clicks={fbClicks} leads={fbLeads} />
+          <FunnelBlock title="Google Funnel" color="#34A853" shades={['#34A853', '#5FBC72', '#8BD391', '#D32F2F']} impressions={ggImp} reach={ggReach} clicks={ggClicks} leads={ggLeads} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm print-avoid-break">
+          <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 text-center">MONTH-OVER-MONTH LEADS</h3>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={momLeadData} margin={{ top: 24, right: 16, left: -20, bottom: 5 }}>
+                <CartesianGrid stroke="#F1F5F9" vertical={false} />
+                <XAxis dataKey="name" fontSize={10} tickLine={false} />
+                <YAxis fontSize={10} tickLine={false} />
+                <Tooltip cursor={{ fill: '#F8FAFC' }} />
+                <Bar dataKey="Leads" radius={[4, 4, 0, 0]} barSize={32}>
+                  <LabelList dataKey="Leads" position="top" fontSize={10} fontWeight={800} />
+                  {momLeadData.map(entry => <Cell key={entry.name} fill={entry.name === currentMonth.name ? '#D32F2F' : '#94A3B8'} />)}
+                </Bar>
+                <Line type="monotone" dataKey="Leads" stroke="#111111" strokeWidth={2} dot={{ r: 3, fill: '#111111' }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm print-avoid-break">
+          <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 text-center">{hasLocationLeads ? 'Lead Locations' : 'Location Activity by Clicks'}</h3>
+          <div className="h-56">
+            {leadLocationsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={leadLocationsData} layout="vertical" margin={{ top: 5, right: 34, left: 10, bottom: 5 }}>
+                  <CartesianGrid stroke="#F1F5F9" horizontal={false} />
+                  <XAxis type="number" fontSize={9} tickLine={false} />
+                  <YAxis dataKey="name" type="category" fontSize={9} tickLine={false} width={70} />
+                  <Tooltip cursor={{ fill: '#F8FAFC' }} formatter={(value: any) => `${value} ${locationMetric.toLowerCase()}`} />
+                  <Bar dataKey={locationMetric} radius={[0, 4, 4, 0]} barSize={12}>
+                    <LabelList dataKey={locationMetric} position="right" fontSize={9} formatter={(value: any) => `${value} (${fmtPct(pctOf(Number(value), locationMetricTotal))})`} />
+                    {leadLocationsData.map((entry, index) => <Cell key={entry.name} fill={index === 0 ? '#B71C1C' : '#EF5350'} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 text-center px-6">Location breakdown not available from the latest Meta sync.</div>
+            )}
+          </div>
+          {!hasLocationLeads && leadLocationsData.length > 0 && (
+            <p className="text-[10px] font-semibold text-slate-400 text-center mt-2">Meta returned region-level clicks/impressions, but no lead conversions by region.</p>
+          )}
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm print-avoid-break">
+          <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 text-center">Audience Gender</h3>
+          <div className="h-56 relative">
+            {genderData.length > 0 && dominantGender ? (
+              <>
+                <div className="absolute inset-x-0 top-[78px] text-center pointer-events-none z-10">
+                  <div className="text-lg font-black text-slate-900">{dominantGender.value.toFixed(1)}%</div>
+                  <div className="text-[10px] font-bold text-slate-500">{dominantGender.name}</div>
+                </div>
+                <ResponsiveContainer width="100%" height="78%">
+                  <PieChart>
+                    <Pie data={genderData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={3} dataKey="value">
+                      {genderData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex justify-center gap-4 text-[10px] font-bold text-slate-600">
+                  {genderCounts.map(item => <span key={item.name}>{item.name} — {fmtNum(item.leads)} leads</span>)}
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 text-center px-6">Gender breakdown not available from the latest Meta sync.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm print-avoid-break">
+          <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 text-center">Age Group Leads</h3>
+          <div className="h-48">
+            {ageGroupData.length > 0 && topAge ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={ageGroupData} margin={{ top: 22, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid stroke="#F1F5F9" vertical={false} />
+                  <XAxis dataKey="name" fontSize={10} tickLine={false} />
+                  <YAxis fontSize={10} tickLine={false} />
+                  <Tooltip cursor={{ fill: '#F8FAFC' }} />
+                  <Bar dataKey="Leads" radius={[4, 4, 0, 0]} barSize={20}>
+                    <LabelList dataKey="Leads" position="top" fontSize={9} formatter={(value: any) => Number(value) > 0 ? value : ''} />
+                    {ageGroupData.map(entry => <Cell key={entry.name} fill={entry.name === topAge.name ? '#B71C1C' : '#EF5350'} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 text-center px-6">Age breakdown not available from the latest Meta sync.</div>
+            )}
+          </div>
+          <p className="text-[10px] font-bold text-slate-500 text-center mt-2">Primary audience: {ageGroupData.length > 0 ? `25–44 age group (${fmtPct(primaryAgeGroupPct)} of leads)` : '—'}</p>
+        </div>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm print-avoid-break">
+        <h3 className="text-xs font-bold text-slate-700 uppercase mb-3 text-center">Product Leads Comparison (April vs May)</h3>
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={productComparisonData} margin={{ top: 24, right: 10, left: -20, bottom: 26 }}>
+              <CartesianGrid stroke="#F1F5F9" vertical={false} />
+              <XAxis dataKey="name" fontSize={8} tickLine={false} interval={0} angle={-20} textAnchor="end" height={48} />
+              <YAxis fontSize={9} tickLine={false} />
+              <Tooltip cursor={{ fill: '#F8FAFC' }} />
+              <Legend iconSize={8} wrapperStyle={{ fontSize: 9, fontWeight: 'bold' }} />
+              <Bar dataKey="April" fill="#94A3B8" radius={[3, 3, 0, 0]}>
+                <LabelList dataKey="April" position="top" fontSize={8} />
+              </Bar>
+              <Bar dataKey="May" fill="#D32F2F" radius={[3, 3, 0, 0]}>
+                <LabelList dataKey="May" position="top" fontSize={8} fontWeight={800} />
+                {productComparisonData.map(entry => <Cell key={entry.name} stroke={entry.May === maxMayLeads ? '#F59E0B' : 'none'} strokeWidth={entry.May === maxMayLeads ? 3 : 0} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 mt-2">
+          {productComparisonData.map(item => {
+            const delta = deltaPct(item.May, item.April);
+            const tone = delta > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-100' : delta < 0 ? 'text-red-700 bg-red-50 border-red-100' : 'text-slate-600 bg-slate-50 border-slate-100';
+            return <div key={item.name} className={`text-[9px] border rounded px-2 py-1 font-bold ${tone}`}>{item.name}: {delta > 0 ? '+' : ''}{delta.toFixed(1)}%</div>;
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 print-avoid-break">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <h3 className="text-xs font-black text-red-600 uppercase tracking-widest mb-2 border-b border-red-100 pb-1">Strategic Inferences</h3>
+          <ul className="list-disc pl-4 text-xs text-slate-650 space-y-1.5 font-medium leading-relaxed">
+            <li>{topCity && secondCity ? `${topCity.name} produced ${fmtNum(Number(topCity[locationMetric] || 0))} ${locationMetric.toLowerCase()} (${fmtPct(topCityPct)}) and ${secondCity.name} produced ${fmtNum(Number(secondCity[locationMetric] || 0))} ${locationMetric.toLowerCase()} (${fmtPct(secondCityPct)}), making them the top two tracked location clusters.` : 'Location-level inference is unavailable until Meta region breakdown rows are synced.'}</li>
+            <li>{currentMonth.name} delivered {fmtNum(currentMonth.Leads)} leads versus {fmtNum(previousMonth.Leads)} in {previousMonth.name}, a {momDelta >= 0 ? '+' : ''}{momDelta.toFixed(1)}% MoM movement.</li>
+            <li>{dominantGender ? `${dominantGender.name} contributes ${dominantGender.value.toFixed(1)}% of audience leads, while the 25–44 age range contributes ${fmtNum(primaryAgeGroupLeads)} leads (${fmtPct(primaryAgeGroupPct)}).` : 'Gender and age inferences are unavailable until Meta demographic breakdown rows are synced.'}</li>
+          </ul>
+        </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <h3 className="text-xs font-black text-red-600 uppercase tracking-widest mb-2 border-b border-red-100 pb-1">Recommended Actions</h3>
+          <ul className="list-disc pl-4 text-xs text-slate-650 space-y-1.5 font-medium leading-relaxed">
+            {recommendations.slice(0, 6).map(action => <li key={action}>{action}</li>)}
+          </ul>
+        </div>
+      </div>
+
+      <section className="print-avoid-break border-l-4 border-[#D32F2F] bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <h2 className="text-sm font-black text-slate-900 uppercase tracking-wide mb-4">JUNE 2026 ACTIVATION PLAN</h2>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {['XUV 3XO', 'XEV 9S', 'Thar Roxx', 'XEV 9e'].map(model => <div key={model} className="rounded-lg border-2 border-red-500 bg-red-50 px-2 py-3 text-center text-xs font-black text-red-800">{model}<div className="text-[8px] uppercase text-red-500 mt-1">High Focus</div></div>)}
+          {['Thar 3-Door', 'Bolero', 'Bolero Neo', 'Scorpio-N'].map(model => <div key={model} className="rounded-lg border border-slate-300 bg-slate-50 px-2 py-3 text-center text-xs font-black text-slate-700">{model}<div className="text-[8px] uppercase text-slate-400 mt-1">Stage 2</div></div>)}
+        </div>
+        <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+          <thead className="bg-[#111] text-white uppercase tracking-wider">
+            <tr><th className="p-3 text-left">Platforms</th><th className="p-3 text-left">Ad Formats</th><th className="p-3 text-left">Goals</th></tr>
+          </thead>
+          <tbody className="font-semibold text-slate-700">
+            <tr>
+              <td className="p-3 border-t border-slate-100">Facebook Lead Ads, Instagram Reels, Google Search, Google Call Ads</td>
+              <td className="p-3 border-t border-slate-100">Carousel, Video, Call Ads, Retargeting</td>
+              <td className="p-3 border-t border-slate-100">Max XEV 9S leads, Scale 3XO, Recover Thar Roxx, Launch XEV 9e</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+  );
+}
+
+function PassengerReportViewLegacy({
   fbImp, fbReach, fbClicks, fbLeads,
   ggImp, ggReach, ggClicks, ggLeads,
   totImp, totReach, totClicks, totLeads

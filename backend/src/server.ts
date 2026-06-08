@@ -7,6 +7,7 @@ delete process.env.https_proxy;
 delete process.env.HTTPS_PROXY;
 
 import cors from 'cors';
+import cron from 'node-cron';
 import express from 'express';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -21,6 +22,7 @@ import { reportRouter } from './routes/report.routes.js';
 import { googleRouter } from './routes/google.route.js';
 import { startMetaSyncJob, initializeMetaConnectionFromEnv } from './jobs/meta.sync.job.js';
 import { setIo } from './services/realtime.service.js';
+import { exportAgentDataSnapshotsForTenant } from './services/ai-brain.service.js';
 
 // Setup global error and promise rejection handlers to protect process stability
 process.on('unhandledRejection', (reason, promise) => {
@@ -100,6 +102,27 @@ app.use((error: Error, _req: express.Request, res: express.Response, _next: expr
 
 initializeMetaConnectionFromEnv();
 startMetaSyncJob();
+
+function refreshAgentSnapshot() {
+  void exportAgentDataSnapshotsForTenant('agency')
+    .then(snapshots => {
+      console.log('[AgentSnapshot] scheduled refresh complete', {
+        count: snapshots.length,
+        snapshots: snapshots.map(snapshot => ({
+          tenantId: snapshot.tenantId,
+          clientId: snapshot.clientId,
+          rows: snapshot.rows,
+          mdPath: snapshot.mdPath,
+        })),
+      });
+    })
+    .catch(error => {
+      console.error('[AgentSnapshot] scheduled refresh failed:', error);
+    });
+}
+
+cron.schedule('*/30 * * * *', refreshAgentSnapshot);
+refreshAgentSnapshot();
 
 if (process.env.NODE_ENV !== 'production') {
   httpServer.listen(port, () => {

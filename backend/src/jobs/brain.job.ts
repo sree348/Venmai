@@ -4,10 +4,9 @@ import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { prisma } from '../services/prisma.service.js';
 import {
   AI_BRAIN_DATE_WINDOW,
-  exportAgentDataSnapshot,
   MARBLISM_AI_TONE,
-  pruneCampaignDataOutsideBrainWindow,
 } from '../services/ai-brain.service.js';
+import { getAnthropicApiKey, getAnthropicModel, logLlmProviderSelection } from '../services/llm-provider.service.js';
 
 const SYSTEM_PROMPT = `You are a senior performance marketing strategist managing Indian ad campaigns. ${MARBLISM_AI_TONE}
 You have live campaign data below. Identify real problems and real opportunities.
@@ -55,10 +54,6 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
   const fromDate = new Date(`${AI_BRAIN_DATE_WINDOW.from}T00:00:00.000Z`);
   const toDate = new Date(`${AI_BRAIN_DATE_WINDOW.to}T23:59:59.999Z`);
-  const snapshot = await exportAgentDataSnapshot(tenantId, clientId);
-  const prunedRows = await pruneCampaignDataOutsideBrainWindow(tenantId, clientId);
-  console.log('AI Brain agent data snapshot saved:', snapshot);
-  console.log(`AI Brain retention pruned ${prunedRows} rows outside ${AI_BRAIN_DATE_WINDOW.from} to ${AI_BRAIN_DATE_WINDOW.to}.`);
 
   // 1. Fetch aggregated campaign data for the configured AI brain window
   const rawCampaigns = await prisma.campaignData.groupBy({
@@ -113,7 +108,7 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
   // 3. Query LLM (OpenAI or Claude)
   const openaiApiKey = process.env.OPENAI_API_KEY;
-  const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+  const anthropicApiKey = getAnthropicApiKey();
 
   if (!openaiApiKey && !anthropicApiKey) {
     console.error('Neither OPENAI_API_KEY nor CLAUDE_API_KEY/ANTHROPIC_API_KEY is configured. Skipping insights generation.');
@@ -123,16 +118,19 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
   try {
     let model: any;
     if (anthropicApiKey) {
-      const anthropicModel = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+      const anthropicModel = getAnthropicModel('analysis');
       console.log(`[Brain Job] Using Claude model (${anthropicModel}) for insights generation...`);
+      logLlmProviderSelection('brain-job', 'anthropic', anthropicModel);
       model = new ChatAnthropic({
         apiKey: anthropicApiKey,
+        anthropicApiKey,
         model: anthropicModel,
         temperature: 0.1,
         maxRetries: 0,
       });
     } else {
       console.log(`[Brain Job] Using OpenAI model (${process.env.OPENAI_MODEL || 'gpt-4o'}) for insights generation...`);
+      logLlmProviderSelection('brain-job', 'openai', process.env.OPENAI_MODEL || 'gpt-4o');
       model = new ChatOpenAI({
         apiKey: openaiApiKey,
         model: process.env.OPENAI_MODEL || 'gpt-4o',

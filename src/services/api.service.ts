@@ -24,6 +24,70 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+async function streamRequest(
+  path: string,
+  options: RequestInit,
+  handlers: {
+    onToken: (token: string) => void;
+    onDone: (payload: any) => void;
+    onError?: (error: Error) => void;
+  },
+) {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'x-tenant-id': TENANT_ID,
+      ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+      ...options?.headers,
+    },
+    ...options,
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`API stream failed: ${response.status} ${response.statusText}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const flushEvent = (rawEvent: string) => {
+    const eventLine = rawEvent.split('\n').find(line => line.startsWith('event:'));
+    const dataLine = rawEvent.split('\n').find(line => line.startsWith('data:'));
+    if (!dataLine) return;
+
+    const event = eventLine?.replace(/^event:\s*/, '').trim() || 'message';
+    const rawData = dataLine.replace(/^data:\s*/, '').trim();
+
+    try {
+      const payload = JSON.parse(rawData);
+      if (event === 'token') {
+        handlers.onToken(payload.token || '');
+      } else if (event === 'done') {
+        handlers.onDone(payload);
+      } else if (event === 'error') {
+        handlers.onError?.(new Error(payload.error || 'Stream error'));
+      }
+    } catch (error: any) {
+      handlers.onError?.(error);
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+    events.forEach(flushEvent);
+  }
+
+  if (buffer.trim()) {
+    flushEvent(buffer);
+  }
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value));
 }
@@ -194,6 +258,30 @@ export const apiService = {
     });
   },
 
+  async streamChat(
+    prompt: string,
+    tenantId: string,
+    history: { role: string; content: string }[],
+    pageContext: any,
+    handlers: {
+      onToken: (token: string) => void;
+      onDone: (payload: any) => void;
+      onError?: (error: Error) => void;
+    },
+  ) {
+    if (MOCK_MODE) {
+      const response = clone(buildMockChatResponse(prompt, pageContext));
+      handlers.onToken(response.insight);
+      handlers.onDone(response);
+      return;
+    }
+
+    return streamRequest('/chat', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, tenantId, clientId: tenantId, history, pageContext, stream: true }),
+    }, handlers);
+  },
+
   async getChatHistory(clientId: string) {
     if (MOCK_MODE) return [];
     return request<any[]>(`/chat/history?clientId=${encodeURIComponent(clientId)}`);
@@ -329,5 +417,24 @@ export const apiService = {
     return request<{ downloadUrl: string; shareLink: string; reportId: string }>('/agency/report', {
       method: 'POST',
     });
+  },
+
+  async listAgencyReports() {
+    if (MOCK_MODE) {
+      return { reports: [] as Array<{ id: string; name: string; createdAt: string; downloadUrl: string; shareLink: string; expiresAt: string }> };
+    }
+    return request<{ reports: Array<{ id: string; name: string; createdAt: string; downloadUrl: string; shareLink: string; expiresAt: string }> }>('/agency/reports');
+  },
+
+  async getAgencyReportBreakdowns(params: { clientId?: string; dateFrom: string; dateTo: string }) {
+    if (MOCK_MODE) {
+      return { locations: [], ageGroups: [], genders: [], leadStatus: null };
+    }
+    const search = new URLSearchParams({
+      clientId: params.clientId || 'cai_mahindra',
+      dateFrom: params.dateFrom,
+      dateTo: params.dateTo,
+    });
+    return request<{ locations: any[]; ageGroups: any[]; genders: any[]; leadStatus: any }>(`/agency/report-breakdowns?${search.toString()}`);
   },
 };

@@ -1,0 +1,2 @@
+date,tenant_id,client_id,platform,campaign_id,campaign_name,campaign_type,spend,impressions,clicks,reach,frequency,ctr,cpc,cpm,conversions,action_value,roas,status
+"2026-05-15","agency","tata_motors","Google Ads","g_camp_tata_pmax","Tata Nexon EV - Google PMax electro","LEAD_GEN","48000","620000","34100","350000","1.77","5.5","1.4076246334310851","77.41935483870968","2180","0","4.5","active"

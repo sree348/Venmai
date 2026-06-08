@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAgentStore } from '../../stores/agentStore';
 import { useApp } from '../context/AppContext';
-import { Sparkles, Trash2, Send, Cpu, Lightbulb, AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, Zap, Settings, Pin, ChevronDown, Pause, Plus, Edit, Check, Globe, Database, Search, Home, Compass, BookOpen, History as HistoryIcon, Paperclip, Mic, Image as ImageIcon, Minus, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles, Trash2, Send, Cpu, Lightbulb, AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ShieldAlert, Zap, Settings, Pin, ChevronDown, Pause, Plus, Edit, Check, Copy, ClipboardPaste, Globe, Database, Search, Home, Compass, BookOpen, History as HistoryIcon, Paperclip, Mic, Image as ImageIcon, Minus, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PageWrapper from '../components/shared/PageWrapper';
 import { apiService } from '../../services/api.service';
@@ -9,6 +9,7 @@ import WidgetRenderer, { formatInr, formatRoas } from '../components/shared/Widg
 import { getAlerts, getConnectedPlatforms, getPerformanceSummary, getRecommendations } from '../../services/insights.service';
 import { toast } from 'sonner';
 import mipLogo from '../components/shared/mip_logo.png';
+import { renderMetricText } from '../components/shared/AIResponseEnhancements';
 
 const MetaIcon = () => (
   <svg className="size-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
@@ -28,8 +29,10 @@ const QUICK_CHIPS = [
   "What should I pause today and why?",
   "Which campaigns are wasting budget with zero conversions?",
   "Where should I scale budget based on CPC and CTR?",
-  "Which campaign has the worst CPC and what should I fix?",
-  "Summarize Meta spend, conversions, CPC, and CPL this month"
+  "Detect any anomalies or unusual spikes in my campaigns",
+  "New campaign funnel idea for launching XEV this quarter",
+  "Generate a campaign performance report for my client",
+  "What is CPL and how do I improve it? (explain simply)"
 ];
 
 const GENERIC_CONVERSATION_PATTERNS = [
@@ -42,6 +45,13 @@ const GENERIC_CONVERSATION_PATTERNS = [
   /\bwho\s+are\s+you\b/i,
   /\bwhat\s+can\s+you\s+do\b/i,
 ];
+
+function getTimeBasedGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 const META_ANALYTICS_TERMS = [
   'ad',
@@ -87,9 +97,9 @@ function buildGenericAgentReply(prompt: string) {
     return 'You are welcome. I am here when you want a clean read on CAI Media campaign movement, waste, fatigue, or scaling opportunities.';
   }
   if (/\bwho\s+are\s+you\b|\bwhat\s+can\s+you\s+do\b/.test(normalized)) {
-    return 'I am your Marketing intelligence agent. Ask me about campaign spend, CPL, CTR, CPM, ROAS, frequency, budget waste, or what to pause and scale.';
+    return 'I am MIP AI Brain, your marketing intelligence assistant. I can explain MIP, read campaign data, diagnose spend, CPL, CTR, CPM, ROAS, frequency, budget waste, and recommend what to pause or scale.';
   }
-  return 'Hi. I am your marketing agent. Ask me anything about your Ad campaigns, or tell me which campaign you want me to inspect.';
+  return 'Hi. I am MIP AI Brain. Ask me about MIP, dashboards, reports, integrations, or tell me which campaign you want me to inspect.';
 }
 
 const BENCHMARKS = {
@@ -754,31 +764,143 @@ interface StructuredMessageRendererProps {
   handleSend: (text: string) => void;
 }
 
+function extractModeEFunnel(content: string) {
+  const normalized = content
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '  ')
+    .replace(/```chartdata[\s\S]*?```/g, '')
+    .trim();
+
+  const fencedMatch = normalized.match(/```([\s\S]*?AWARENESS \(Top of Funnel\)[\s\S]*?RE-ENGAGEMENT[\s\S]*?)```/i);
+  const plainMatch = fencedMatch || normalized.match(/((?:\d+\.\s*)?AWARENESS \(Top of Funnel\)[\s\S]*?(?:\d+\.\s*)?RE-ENGAGEMENT[\s\S]*?)(?=\n\s*(?:\| Stage \||---|🔍|\*\*Ask me|Ask me:|$))/i);
+  if (!plainMatch) return null;
+
+  const funnelText = plainMatch[1].trim();
+  const stageMatches = Array.from(funnelText.matchAll(/(?:\d+\.\s*)?(AWARENESS \(Top of Funnel\)|CONSIDERATION \(Mid Funnel\)|CONVERSION \(Bottom Funnel\)|RE-ENGAGEMENT)([\s\S]*?)(?=(?:\d+\.\s*)?AWARENESS \(Top of Funnel\)|(?:\d+\.\s*)?CONSIDERATION \(Mid Funnel\)|(?:\d+\.\s*)?CONVERSION \(Bottom Funnel\)|(?:\d+\.\s*)?RE-ENGAGEMENT|$)/gi));
+  if (stageMatches.length < 4) return null;
+
+  const stages = stageMatches.map((match, idx) => ({
+    title: match[1].trim(),
+    body: match[2]
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean),
+    tone: ['indigo', 'cyan', 'emerald', 'amber'][idx] || 'slate'
+  }));
+
+  return {
+    before: normalized.slice(0, plainMatch.index).trim(),
+    after: normalized.slice((plainMatch.index || 0) + plainMatch[0].length).trim(),
+    stages,
+  };
+}
+
+function getModeEStageDetails(stage: { body: string[] }) {
+  const details = stage.body
+    .map(line => {
+      const [label, ...rest] = line.split(':');
+      const value = rest.join(':').trim();
+      return value ? `${label.trim()}: ${value}` : line;
+    })
+    .filter(Boolean);
+
+  const budget = details.find(line => /^Budget:/i.test(line)) || details[0] || '';
+  const kpi = details.find(line => /^KPI:/i.test(line)) || details.find(line => /^Format:/i.test(line)) || details[1] || '';
+  const audience = details.find(line => /^Audience:/i.test(line)) || details[2] || '';
+  return [budget, kpi, audience].filter(Boolean).slice(0, 3);
+}
+
 const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ content, handleSend }) => {
+  const modeEFunnel = extractModeEFunnel(content);
   const parsed = parseMessageContent(content);
   const isStructured = !!(parsed.metricsTable || parsed.redFlags.length > 0 || parsed.recommendations.length > 0 || parsed.rootCause || parsed.analystThinking || parsed.conflict || parsed.turningPoint || parsed.askMe.length > 0);
 
   const formatInlineText = (text: string) => {
     if (!text) return null;
-    return text.split('**').map((part, idx) => {
-      if (idx % 2 === 1) {
-        return (
-          <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">
-            {part}
-          </strong>
-        );
-      }
-      return part;
-    });
+    return renderMetricText(text, 'font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent');
   };
+
+  if (modeEFunnel) {
+    const funnelSegments = [
+      { fill: '#4F46E5', points: '110,24 790,24 735,108 165,108' },
+      { fill: '#0891B2', points: '175,126 725,126 670,210 230,210' },
+      { fill: '#059669', points: '240,228 660,228 605,312 295,312' },
+      { fill: '#D97706', points: '305,330 595,330 540,414 360,414' },
+    ];
+
+    return (
+      <div className="space-y-4">
+        {modeEFunnel.before && (
+          <div className="text-xs sm:text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-medium">
+            {formatInlineText(modeEFunnel.before)}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-slate-200 bg-slate-50/90 flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Funnel Diagram</span>
+            <span className="text-[10px] font-bold text-slate-400">Mode E</span>
+          </div>
+          <div className="p-3">
+            <svg
+              viewBox="0 0 900 438"
+              role="img"
+              aria-label="Projected campaign funnel diagram"
+              className="w-full h-auto rounded-lg bg-slate-950"
+            >
+              <defs>
+                <filter id="funnelShadow" x="-10%" y="-10%" width="120%" height="130%">
+                  <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#020617" floodOpacity="0.35" />
+                </filter>
+              </defs>
+              {modeEFunnel.stages.map((stage, idx) => {
+                const segment = funnelSegments[idx] || funnelSegments[funnelSegments.length - 1];
+                const details = getModeEStageDetails(stage);
+                const centerY = 72 + idx * 102;
+                return (
+                  <g key={stage.title} filter="url(#funnelShadow)">
+                    <polygon points={segment.points} fill={segment.fill} stroke="rgba(255,255,255,0.42)" strokeWidth="2" />
+                    <text x="450" y={centerY - 18} textAnchor="middle" fill="#FFFFFF" fontSize="24" fontWeight="800">
+                      {stage.title}
+                    </text>
+                    {details.map((line, detailIdx) => (
+                      <text
+                        key={line}
+                        x="450"
+                        y={centerY + 12 + detailIdx * 19}
+                        textAnchor="middle"
+                        fill="rgba(255,255,255,0.86)"
+                        fontSize="15"
+                        fontWeight={detailIdx === 0 ? '700' : '500'}
+                      >
+                        {line.length > 78 ? `${line.slice(0, 75)}...` : line}
+                      </text>
+                    ))}
+                  </g>
+                );
+              })}
+            </svg>
+
+          </div>
+        </div>
+
+        {modeEFunnel.after && (
+          <div className="text-xs sm:text-[13px] text-slate-700 leading-relaxed whitespace-pre-line font-medium">
+            {formatInlineText(modeEFunnel.after)}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!isStructured) {
     return (
+      <div className="space-y-3">
       <p className="break-words whitespace-pre-line">
-        {content.split('**').map((part: string, idx: number) =>
-          idx % 2 === 0 ? part : <strong key={idx} className="font-extrabold bg-gradient-to-r from-violet-600 to-indigo-650 bg-clip-text text-transparent">{part}</strong>
-        )}
+        {formatInlineText(content.replace(/```chartdata[\s\S]*?```/g, '').trim())}
       </p>
+      </div>
     );
   }
 
@@ -817,7 +939,7 @@ const StructuredMessageRenderer: React.FC<StructuredMessageRendererProps> = ({ c
                 <tr className="bg-slate-50/50 border-b border-slate-200">
                   {parsed.metricsTable.headers.map((h, idx) => (
                     <th key={idx} className={`px-4 py-2.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider ${idx > 0 ? 'text-right' : ''}`}>
-                      {h}
+                      {formatInlineText(h)}
                     </th>
                   ))}
                 </tr>
@@ -1593,6 +1715,7 @@ export default function AIScreen() {
   const [activeEditMsgIndex, setActiveEditMsgIndex] = useState<number | null>(null);
   const [activePinWidget, setActivePinWidget] = useState<any>(null);
   const [showHealthBrief, setShowHealthBrief] = useState(false);
+  const [timeGreeting, setTimeGreeting] = useState(getTimeBasedGreeting);
 
   // Multi-Session Chat States
   const [sessions, setSessions] = useState<any[]>([]);
@@ -1679,6 +1802,14 @@ export default function AIScreen() {
 
   const tenantId = activeClient?.id || 'agency';
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setTimeGreeting(getTimeBasedGreeting());
+    }, 60 * 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Platform Segment state in AI Strategist Screen
   const [aiPlatformFilter, setAiPlatformFilter] = useState<'meta' | 'google'>('meta');
 
@@ -1732,6 +1863,7 @@ export default function AIScreen() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [copiedMessageKey, setCopiedMessageKey] = useState<string | null>(null);
 
   // AI Brain Specific States
   const [insights, setInsights] = useState<any[]>([]);
@@ -1988,6 +2120,53 @@ export default function AIScreen() {
     }
   }, [isLoadingHistory, activeView]);
 
+  const copyMessageToClipboard = async (content: string, key: string) => {
+    if (!content?.trim()) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = content;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      setCopiedMessageKey(key);
+      toast.success('Copied to clipboard');
+      window.setTimeout(() => setCopiedMessageKey(current => current === key ? null : current), 1800);
+    } catch (error) {
+      console.error('Failed to copy AI Brain message:', error);
+      toast.error('Could not copy this message.');
+    }
+  };
+
+  const pasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.readText) {
+        toast.error('Clipboard paste is not available in this browser.');
+        return;
+      }
+
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText.trim()) {
+        toast.info('Clipboard is empty.');
+        return;
+      }
+
+      setInput(current => current.trim() ? `${current}\n${clipboardText}` : clipboardText);
+      toast.success('Pasted from clipboard');
+    } catch (error) {
+      console.error('Failed to paste into AI Brain input:', error);
+      toast.error('Allow clipboard access to paste here.');
+    }
+  };
+
   // Submit Prompt Handler
   const handleSend = async (text?: string) => {
     const promptText = text || input;
@@ -2004,17 +2183,6 @@ export default function AIScreen() {
     setIsTyping(true);
 
     try {
-      if (isGenericConversation(promptText)) {
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: buildGenericAgentReply(promptText),
-          widget: null,
-          createdAt: new Date().toISOString(),
-        }]);
-        return;
-      }
-
       // Gather full conversation history
       const cleanHistory = messages.map(({ role, content }) => ({ role, content }));
 
@@ -2746,6 +2914,7 @@ export default function AIScreen() {
                   <>
                     {messages.map((msg, i) => {
                       const isUser = msg.role === 'user';
+                      const messageKey = String(msg.id || i);
                       return (
                         <motion.div
                           key={msg.id || i}
@@ -2768,17 +2937,38 @@ export default function AIScreen() {
                           <div className={`flex flex-col gap-1.5 max-w-[85%] ${isUser ? 'items-end' : 'items-start'} w-full`}>
                             <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isUser
                               ? 'bg-slate-900 text-white border border-slate-950 rounded-tr-none shadow-md text-justify font-medium'
-                              : 'text-slate-800 font-normal leading-relaxed text-justify pr-2 w-full border-l-2 border-indigo-500/20 pl-4'
+                              : 'text-slate-800 font-normal leading-relaxed text-justify pr-2 w-full border-l-2 border-indigo-500/20 pl-4 select-text'
                               }`}>
                               {isUser ? (
-                                <p className="break-words">{msg.content}</p>
+                                <p className="break-words select-text">{msg.content}</p>
                               ) : (
                                 <StructuredMessageRenderer content={msg.content} handleSend={handleSend} />
                               )}
                             </div>
 
+                            {!isUser && msg.content && (
+                              <button
+                                type="button"
+                                onClick={() => copyMessageToClipboard(msg.content, messageKey)}
+                                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors select-none"
+                                aria-label="Copy AI Brain response"
+                              >
+                                {copiedMessageKey === messageKey ? (
+                                  <>
+                                    <Check className="size-3" />
+                                    Copied
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="size-3" />
+                                    Copy
+                                  </>
+                                )}
+                              </button>
+                            )}
+
                             {/* If Assistant contains widget data, render it */}
-                            {!isUser && msg.widget && (
+                            {!isUser && msg.widget && Array.isArray(msg.widget.data) && msg.widget.data.length > 0 && (
                               <div className="w-full mt-2 min-w-[320px] max-w-full rounded-2xl border border-slate-150 bg-slate-50/40 p-4 shadow-sm space-y-3 animate-fade-in">
                                 <WidgetRenderer widget={msg.widget} />
 
@@ -2902,7 +3092,7 @@ export default function AIScreen() {
                         <div className="space-y-1.5 z-10">
                           <h2 className="text-3xl font-extrabold tracking-tight text-slate-800"
                             style={{ fontFamily: "'Poppins', sans-serif" }}>
-                            Good afternoon Venpep
+                            {timeGreeting} Venpep
                           </h2>
                           <h3 className="text-xl font-bold tracking-tight text-slate-500 font-sans">
                             How Can I <span className="text-indigo-600 font-extrabold">Assist You Today?</span>
@@ -2971,6 +3161,16 @@ export default function AIScreen() {
                   className="flex-1 max-h-24 min-h-[2.25rem] bg-transparent border-0 focus:ring-0 focus:outline-none text-xs sm:text-sm text-slate-800 placeholder:text-slate-455 py-1.5 px-0 resize-none font-sans leading-relaxed"
                 />
                 <button
+                  type="button"
+                  onClick={pasteFromClipboard}
+                  className="size-9 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 flex items-center justify-center hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-650 cursor-pointer transition-all shrink-0"
+                  aria-label="Paste from clipboard"
+                  title="Paste from clipboard"
+                >
+                  <ClipboardPaste className="size-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSend()}
                   disabled={!input.trim()}
                   className="size-9 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-650 to-pink-500 text-white flex items-center justify-center hover:shadow-glow shadow-md disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed cursor-pointer transition-all border-0 shrink-0 hover:scale-[1.03] active:scale-95"
@@ -3070,6 +3270,8 @@ function EditChartModal({ isOpen, onClose, widget, onSave }: { isOpen: boolean; 
                 <option value="bar_chart">Bar Chart</option>
                 <option value="line_chart">Line Chart</option>
                 <option value="pie_chart">Pie Chart</option>
+                <option value="bubble_chart">Bubble Chart</option>
+                <option value="scatter_chart">Scatter Plot</option>
                 <option value="kpi_card">KPI Cards</option>
                 <option value="table">Data Table</option>
               </select>

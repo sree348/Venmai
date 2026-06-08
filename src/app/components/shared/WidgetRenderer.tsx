@@ -8,11 +8,14 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Legend,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from 'recharts';
 import { TrendingUp, Users, Target, MousePointer, Percent, HelpCircle } from 'lucide-react';
 
@@ -53,12 +56,13 @@ export const formatCpcCpm = (val: number | string | null | undefined): string =>
 };
 
 export type WidgetData = {
-  chart_type: 'bar_chart' | 'line_chart' | 'table' | 'kpi_card' | 'pie_chart';
+  chart_type: 'bar_chart' | 'line_chart' | 'table' | 'kpi_card' | 'pie_chart' | 'bubble_chart' | 'scatter_chart';
   title: string;
   data: any[];
   config: {
     x_axis?: string | null;
     y_axis?: string | null;
+    z_axis?: string | null;
     sort?: string | null;
     columns?: string[];
     format?: 'money' | 'number' | 'percent' | string;
@@ -229,14 +233,20 @@ export default function WidgetRenderer({ widget }: WidgetRendererProps) {
     }
 
     case 'line_chart': {
-      const xAxisKey = 'date'; // Strictly map to date
+      const xAxisKey = config.x_axis || (data[0]?.date !== undefined ? 'date' : 'label');
       const yAxisKey = config.y_axis || 'spend';
+      const numericKeys = Object.keys(data[0] || {}).filter((key) =>
+        key !== xAxisKey && data.some((row) => row[key] !== null && row[key] !== undefined && !isNaN(Number(row[key])))
+      );
+      const seriesKeys = numericKeys.length > 1 ? numericKeys : [yAxisKey];
+      const lineColors = ['#6366f1', '#16a34a', '#ea580c', '#db2777', '#0891b2', '#8b5cf6'];
+
       return (
         <div className="p-4 rounded-2xl border border-border bg-card shadow-sm w-full">
           <h4 className="font-display text-sm font-bold text-foreground mb-4">{title}</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+              <LineChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
                 {renderGradients()}
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis 
@@ -247,8 +257,10 @@ export default function WidgetRenderer({ widget }: WidgetRendererProps) {
                   dy={10}
                   tickFormatter={(val) => {
                     if (!val) return '';
+                    if (typeof val === 'string' && !/\d{4}-\d{2}-\d{2}/.test(val)) return val;
                     try {
                       const d = new Date(val);
+                      if (Number.isNaN(d.getTime())) return val;
                       return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
                     } catch (e) {
                       return val;
@@ -267,16 +279,19 @@ export default function WidgetRenderer({ widget }: WidgetRendererProps) {
                   }}
                 />
                 <Tooltip content={customTooltip} />
-                <Area 
-                  type="monotone" 
-                  dataKey={yAxisKey} 
-                  stroke="#6366f1" 
-                  strokeWidth={2}
-                  fill="url(#gradient-meta)" 
-                  dot={{ r: 3, stroke: '#4f46e5', strokeWidth: 1.5, fill: '#fff' }}
-                  activeDot={{ r: 5, stroke: '#4f46e5', strokeWidth: 2, fill: '#6366f1' }}
-                />
-              </AreaChart>
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={10} />
+                {seriesKeys.map((key, index) => (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={lineColors[index % lineColors.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3, stroke: lineColors[index % lineColors.length], strokeWidth: 1.5, fill: '#fff' }}
+                    activeDot={{ r: 5, stroke: lineColors[index % lineColors.length], strokeWidth: 2, fill: lineColors[index % lineColors.length] }}
+                  />
+                ))}
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -310,6 +325,51 @@ export default function WidgetRenderer({ widget }: WidgetRendererProps) {
                 <Tooltip formatter={(val: any) => formatValue(yAxisKey, val)} />
                 <Legend layout="horizontal" verticalAlign="bottom" align="center" iconSize={10} iconType="circle" />
               </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      );
+    }
+
+    case 'bubble_chart':
+    case 'scatter_chart': {
+      const xAxisKey = config.x_axis || 'x';
+      const yAxisKey = config.y_axis || 'y';
+      const zAxisKey = config.z_axis || 'z';
+      const chartData = data.map((row) => ({
+        ...row,
+        [xAxisKey]: Number(row[xAxisKey] ?? 0),
+        [yAxisKey]: Number(row[yAxisKey] ?? 0),
+        [zAxisKey]: Math.max(1, Number(row[zAxisKey] ?? 1)),
+      }));
+
+      return (
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm w-full">
+          <h4 className="font-display text-sm font-bold text-foreground mb-4">{title}</h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 10, right: 16, left: 8, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                <XAxis
+                  type="number"
+                  dataKey={xAxisKey}
+                  name={xAxisKey}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={{ stroke: 'var(--border)' }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey={yAxisKey}
+                  name={yAxisKey}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <ZAxis type="number" dataKey={zAxisKey} range={chart_type === 'bubble_chart' ? [80, 520] : [80, 80]} />
+                <Tooltip cursor={{ strokeDasharray: '3 3' }} content={customTooltip} />
+                <Scatter name={title} data={chartData} fill="#6366f1" />
+              </ScatterChart>
             </ResponsiveContainer>
           </div>
         </div>
