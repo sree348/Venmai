@@ -2,7 +2,7 @@ import { useApp } from '../context/AppContext';
 import { 
   Building2, Download, Sparkles, Wallet, TrendingUp, CheckCircle, Briefcase, 
   ArrowRight, AlertTriangle, ArrowUpRight, ArrowDownRight, Lightbulb, MousePointer,
-  X, Brain, FileText, Check, Copy, Loader2
+  X, Brain, FileText, Check, Copy, Loader2, Mail, Send
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
@@ -18,6 +18,22 @@ import { useAgentStore } from '../../stores/agentStore';
 import { parseTargetingFromName } from '../../services/mock-data';
 import { downloadReportPptx } from '../../services/report-pptx.service';
 import { Document, ImageRun, Packer, Paragraph } from 'docx';
+
+interface MailIntent {
+  recipient: string;
+  recipientEmail: string | string[];
+  documentType: 'passenger' | 'commercial' | 'branding' | 'all';
+  period: string;
+  format: string[];
+  rawText: string;
+}
+
+const CONTACTS: Record<string, string | string[]> = {
+  jayasree: 'jayasree.s@venpep.com',
+  manager: 'manager@cai.media',
+  client: 'mahindra@cai.media',
+  team: ['jayasree.s@venpep.com', 'sree@venpep.com'],
+};
 
 // Spend vs Conversions Trend Mock Data mapped to screenshot trajectory
 const spendConversionsTrend = [
@@ -51,6 +67,20 @@ export default function AgencyOverviewScreen() {
   const [dateTo, setDateTo] = useState('2026-05-31');
   const [isReportGenerated, setIsReportGenerated] = useState(false);
   const [reportBreakdowns, setReportBreakdowns] = useState<any>({ locations: [], ageGroups: [], genders: [], leadStatus: null });
+  const [showPageMailAgent, setShowPageMailAgent] = useState(false);
+  const [pageMailInput, setPageMailInput] = useState('');
+  const [pageMailMessages, setPageMailMessages] = useState<Array<{ role: 'user' | 'agent'; type: 'text' | 'confirm' | 'error' | 'success'; text?: string; intent?: MailIntent; body?: string; subject?: string }>>([
+    { role: 'agent', type: 'text', text: 'Type naturally - e.g. send May report to jayasree' },
+  ]);
+  const [pageMailDraft, setPageMailDraft] = useState<{ intent: MailIntent; subject: string; body: string } | null>(null);
+  const [sendingMail, setSendingMail] = useState(false);
+  const [mailContactMemory, setMailContactMemory] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem('mip_mail_agent_contacts') || '{}');
+    } catch {
+      return {};
+    }
+  });
 
   const [trendData, setTrendData] = useState<any[]>([]);
   const [loadingTrend, setLoadingTrend] = useState(true);
@@ -339,6 +369,295 @@ export default function AgencyOverviewScreen() {
   const criticalText = criticalCampaigns.length > 0 
     ? `${criticalCampaigns.slice(0, 2).map((c: any) => c.name).join(', ')} require(s) immediate attention.`
     : 'CAI Mahindra has campaigns with creative fatigue detected (frequency above 3.0).';
+
+  const caiCampaignsForMail = campaigns.filter((c: any) => c.clientId === 'cai_mahindra');
+  const mailTotalLeads = caiCampaignsForMail.reduce((sum: number, c: any) => sum + Number(c.conv || c.conversions || 0), 0);
+  const mailTotalSpend = caiCampaignsForMail.reduce((sum: number, c: any) => sum + Number(c.spend || c.amount_spent || 0), 0);
+  const mailBlendedCpl = mailTotalLeads > 0 ? mailTotalSpend / mailTotalLeads : 0;
+  const mailBestCampaign = caiCampaignsForMail
+    .filter((c: any) => Number(c.conv || c.conversions || 0) > 0)
+    .map((c: any) => {
+      const leads = Number(c.conv || c.conversions || 0);
+      const spend = Number(c.spend || c.amount_spent || 0);
+      return {
+        name: c.name || c.campaignName || 'Campaign',
+        cpl: leads > 0 ? spend / leads : 0,
+        leads,
+      };
+    })
+    .sort((a: any, b: any) => a.cpl - b.cpl || b.leads - a.leads)[0];
+
+  const parseMailIntent = (rawText: string): MailIntent | null => {
+    const text = rawText.trim();
+    const normalized = text.toLowerCase();
+    const emailMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const allContacts: Record<string, string | string[]> = { ...CONTACTS, ...mailContactMemory };
+    const contactKey = Object.keys(allContacts).find(key => new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
+    const explicitRecipient = text.match(/\bto\s+([a-zA-Z][a-zA-Z0-9._-]*)/i)?.[1]?.toLowerCase() || '';
+    const emailLocalName = emailMatch?.[0]?.split('@')[0]?.toLowerCase() || '';
+    const recipient = contactKey || explicitRecipient || emailLocalName || '';
+    if (!recipient) return null;
+
+    let documentType: MailIntent['documentType'] = 'all';
+    if (normalized.includes('passenger')) documentType = 'passenger';
+    else if (normalized.includes('commercial')) documentType = 'commercial';
+    else if (normalized.includes('branding')) documentType = 'branding';
+
+    let period = 'may';
+    if (normalized.includes('last month')) period = 'last month';
+    else {
+      const month = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+        .find(item => normalized.includes(item) || normalized.includes(item.slice(0, 3)));
+      if (month) period = month;
+    }
+
+    let format = ['pdf', 'pptx', 'docx'];
+    const mentionsPdf = /\bpdf\b/i.test(text);
+    const mentionsPpt = /\bpptx?\b|presentation/i.test(text);
+    const mentionsDoc = /docx?|word/i.test(text);
+    if ((mentionsPdf || mentionsPpt || mentionsDoc) && !/both|all/i.test(text)) {
+      format = [
+        ...(mentionsPdf ? ['pdf'] : []),
+        ...(mentionsPpt ? ['pptx'] : []),
+        ...(mentionsDoc ? ['docx'] : []),
+      ];
+    }
+
+    return {
+      recipient,
+      recipientEmail: contactKey ? allContacts[contactKey] : emailMatch?.[0] || '',
+      documentType,
+      period,
+      format,
+      rawText: text,
+    };
+  };
+
+  const buildPageMailBody = (intent: MailIntent) => {
+    const firstRecipient = Array.isArray(intent.recipientEmail) ? intent.recipientEmail[0] : intent.recipientEmail;
+    const displayName = intent.recipient === firstRecipient ? 'there' : intent.recipient.charAt(0).toUpperCase() + intent.recipient.slice(1);
+    return [
+      `Hi ${displayName},`,
+      '',
+      `Please find the attached document ${intent.documentType} Report for ${intent.period}.`,
+      '',
+      '',
+      'Regards,',
+      'MIP AI Brain',
+    
+    ].join('\n');
+  };
+
+  const handlePageMailSubmit = () => {
+    const text = pageMailInput.trim();
+    if (!text) return;
+
+    const parsed = parseMailIntent(text);
+    setPageMailMessages(prev => [...prev, { role: 'user', type: 'text', text }]);
+    setPageMailInput('');
+
+    if (!parsed || !parsed.recipientEmail || (Array.isArray(parsed.recipientEmail) && parsed.recipientEmail.length === 0)) {
+      const unknown = text.match(/\bto\s+([a-z0-9._%+-]+)/i)?.[1] || text.split(/\s+/).pop() || 'that recipient';
+      setPageMailMessages(prev => [...prev, { role: 'agent', type: 'error', text: `I don't recognize '${unknown}'. What's their email address?` }]);
+      setPageMailDraft(null);
+      return;
+    }
+
+    const subject = `${parsed.documentType.charAt(0).toUpperCase()}${parsed.documentType.slice(1)} Report`;
+    const body = buildPageMailBody(parsed);
+    setPageMailDraft({ intent: parsed, subject, body });
+    setPageMailMessages(prev => [...prev, { role: 'agent', type: 'confirm', intent: parsed, subject, body }]);
+  };
+
+  const sendPageMail = async () => {
+    if (!pageMailDraft) return;
+    setSendingMail(true);
+    try {
+      const captureReportAsJpegs = async (sourceNode: HTMLElement) => {
+        const inlineComputedStylesForMail = (sourceNodeInner: Element, cloneNode: Element) => {
+          const sourceElements = [sourceNodeInner, ...Array.from(sourceNodeInner.querySelectorAll('*'))];
+          const cloneElements = [cloneNode, ...Array.from(cloneNode.querySelectorAll('*'))];
+          sourceElements.forEach((sourceElement, index) => {
+            const cloneElement = cloneElements[index] as HTMLElement | SVGElement | undefined;
+            if (!cloneElement) return;
+            const computed = window.getComputedStyle(sourceElement);
+            const styleText = Array.from(computed)
+              .map(property => `${property}:${computed.getPropertyValue(property)};`)
+              .join('');
+            cloneElement.setAttribute('style', styleText);
+          });
+        };
+
+        const clone = sourceNode.cloneNode(true) as HTMLElement;
+        inlineComputedStylesForMail(sourceNode, clone);
+        clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+
+        const rect = sourceNode.getBoundingClientRect();
+        const width = Math.ceil(Math.max(sourceNode.scrollWidth, rect.width, 794));
+        const height = Math.ceil(Math.max(sourceNode.scrollHeight, rect.height, 1123));
+        const scale = 2;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+          <foreignObject width="100%" height="100%">
+            ${clone.outerHTML}
+          </foreignObject>
+        </svg>`;
+        const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+
+        try {
+          const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Could not render the report for mail attachment.'));
+            img.src = svgUrl;
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width * scale;
+          canvas.height = height * scale;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas is not available.');
+          ctx.setTransform(scale, 0, 0, scale, 0, 0);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(image, 0, 0, width, height);
+
+          const pageHeight = Math.floor(canvas.width * 1.414);
+          const pages: Array<{ dataUrl: string; width: number; height: number }> = [];
+          for (let y = 0; y < canvas.height; y += pageHeight) {
+            const sliceHeight = Math.min(pageHeight, canvas.height - y);
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = sliceHeight;
+            const pageCtx = pageCanvas.getContext('2d');
+            if (!pageCtx) continue;
+            pageCtx.fillStyle = '#ffffff';
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            pageCtx.drawImage(canvas, 0, y, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+            pages.push({
+              dataUrl: pageCanvas.toDataURL('image/jpeg', 0.92),
+              width: pageCanvas.width,
+              height: pageCanvas.height,
+            });
+          }
+          return pages;
+        } finally {
+          URL.revokeObjectURL(svgUrl);
+        }
+      };
+
+      const buildPdfFromJpegs = (pages: Array<{ dataUrl: string; width: number; height: number }>) => {
+        const encoder = new TextEncoder();
+        const chunks: Uint8Array[] = [];
+        const offsets: number[] = [0];
+        let length = 0;
+        const push = (value: string | Uint8Array) => {
+          const bytes = typeof value === 'string' ? encoder.encode(value) : value;
+          chunks.push(bytes);
+          length += bytes.length;
+        };
+        const addObject = (id: number, body: string | Uint8Array, prefix = '', suffix = '') => {
+          offsets[id] = length;
+          push(`${id} 0 obj\n${prefix}`);
+          push(body);
+          push(`${suffix}\nendobj\n`);
+        };
+        const imageBytes = pages.map(page => {
+          const base64 = page.dataUrl.split(',')[1] || '';
+          const binary = window.atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          return bytes;
+        });
+
+        push('%PDF-1.4\n');
+        const pageIds = pages.map((_, index) => 3 + index * 3);
+        const contentIds = pages.map((_, index) => 4 + index * 3);
+        const imageIds = pages.map((_, index) => 5 + index * 3);
+        addObject(1, `<< /Type /Catalog /Pages 2 0 R >>`);
+        addObject(2, `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pages.length} >>`);
+        pages.forEach((page, index) => {
+          const pageId = pageIds[index];
+          const contentId = contentIds[index];
+          const imageId = imageIds[index];
+          const pageWidth = 595;
+          const pageHeight = Math.round(pageWidth * (page.height / page.width));
+          const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im${index} Do\nQ`;
+          addObject(pageId, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+          addObject(contentId, encoder.encode(content), `<< /Length ${encoder.encode(content).length} >>\nstream\n`, '\nendstream');
+          addObject(imageId, imageBytes[index], `<< /Type /XObject /Subtype /Image /Width ${page.width} /Height ${page.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes[index].length} >>\nstream\n`, '\nendstream');
+        });
+        const xrefOffset = length;
+        push(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+        for (let i = 1; i < offsets.length; i += 1) push(`${String(offsets[i]).padStart(10, '0')} 00000 n \n`);
+        push(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+        const pdfBytes = new Uint8Array(length);
+        let cursor = 0;
+        chunks.forEach(chunk => {
+          pdfBytes.set(chunk, cursor);
+          cursor += chunk.length;
+        });
+        return pdfBytes;
+      };
+
+      let printable = document.getElementById('printable-report') as HTMLElement | null;
+      const attachments = [];
+      if (printable && pageMailDraft.intent.format.includes('pdf')) {
+        try {
+          const pages = await captureReportAsJpegs(printable);
+          const pdfBytes = buildPdfFromJpegs(pages);
+          let binary = '';
+          pdfBytes.forEach(byte => { binary += String.fromCharCode(byte); });
+          attachments.push({
+            name: 'document.pdf',
+            contentType: 'application/pdf',
+            contentBytes: window.btoa(binary),
+          });
+        } catch (captureError: any) {
+          console.warn('Exact report PDF capture failed; backend report PDF will be used instead.', captureError);
+        }
+      }
+
+      const response = await fetch(`${apiService.apiUrl}/mail/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': apiService.tenantId,
+          ...(import.meta.env.VITE_AUTH_TOKEN ? { Authorization: `Bearer ${import.meta.env.VITE_AUTH_TOKEN}` } : {}),
+        },
+        body: JSON.stringify({
+          recipient: pageMailDraft.intent.recipientEmail,
+          subject: pageMailDraft.subject,
+          body: pageMailDraft.body.replace(/\n/g, '<br/>'),
+          documentType: pageMailDraft.intent.documentType,
+          period: pageMailDraft.intent.period,
+          format: pageMailDraft.intent.format,
+          attachments,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Mail send failed. Try again or download the report manually.');
+
+      const learnedEmail = Array.isArray(pageMailDraft.intent.recipientEmail) ? null : pageMailDraft.intent.recipientEmail;
+      const learnedName = pageMailDraft.intent.recipient.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+      if (learnedEmail && learnedName && !learnedName.includes('@')) {
+        setMailContactMemory(prev => {
+          const next = { ...prev, [learnedName]: learnedEmail };
+          window.localStorage.setItem('mip_mail_agent_contacts', JSON.stringify(next));
+          return next;
+        });
+      }
+
+      setPageMailMessages(prev => [...prev, { role: 'agent', type: 'success', text: `Mail sent to ${Array.isArray(pageMailDraft.intent.recipientEmail) ? pageMailDraft.intent.recipientEmail.join(', ') : pageMailDraft.intent.recipientEmail}.` }]);
+      setPageMailDraft(null);
+      toast.success('Mail sent successfully.');
+    } catch (error: any) {
+      setPageMailMessages(prev => [...prev, { role: 'agent', type: 'error', text: error.message || 'Mail send failed. Try again or download the report manually.' }]);
+      toast.error(error.message || 'Mail send failed. Try again or download the report manually.');
+    } finally {
+      setSendingMail(false);
+    }
+  };
 
   return (
     <PageWrapper>
@@ -844,6 +1163,113 @@ export default function AgencyOverviewScreen() {
       </AnimatePresence>
       </div>
 
+      <div className="fixed bottom-[96px] right-6 z-[9998] no-print">
+        {!showPageMailAgent && (
+          <button
+            onClick={() => setShowPageMailAgent(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-2xl hover:bg-slate-800 border border-slate-800"
+          >
+            <Mail className="size-4" /> Mail Agent
+          </button>
+        )}
+
+        {showPageMailAgent && (
+          <div className="w-[400px] h-[500px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-2rem)] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="size-8 rounded-full bg-red-600 text-white flex items-center justify-center">
+                  <Mail className="size-4" />
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900">Mail Agent</div>
+                  <div className="text-[11px] font-semibold text-slate-500">Outlook report sender</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPageMailAgent(false)}
+                className="size-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 flex items-center justify-center"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
+              {pageMailMessages.map((message, index) => (
+                <div key={index} className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                  {message.type === 'confirm' && message.intent ? (
+                    <div className="w-full rounded-2xl border border-red-100 bg-white p-4 shadow-sm">
+                      <div className="text-sm font-black text-slate-900 mb-3">📧 Ready to send</div>
+                      <div className="space-y-2 text-xs">
+                        <div><span className="font-black text-slate-500">To:</span> <span className="font-semibold text-slate-900">{Array.isArray(message.intent.recipientEmail) ? message.intent.recipientEmail.join(', ') : message.intent.recipientEmail}</span></div>
+                        <div><span className="font-black text-slate-500">Subject:</span> <span className="font-semibold text-slate-900">{message.subject}</span></div>
+                        <div><span className="font-black text-slate-500">Attachment:</span> <span className="font-semibold text-slate-900">CAI-Mahindra-{message.intent.documentType}-Report ({message.intent.format.join(' + ')})</span></div>
+                        <div><span className="font-black text-slate-500">From:</span> <span className="font-semibold text-slate-900">reports@venpep.com</span></div>
+                      </div>
+                      <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                        {message.body}
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          onClick={sendPageMail}
+                          disabled={sendingMail}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-xs font-black text-white hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {sendingMail ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} Send Now
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPageMailDraft(null);
+                            setPageMailMessages(prev => [...prev, { role: 'agent', type: 'text', text: 'Cancelled. Type a new mail command when ready.' }]);
+                          }}
+                          className="rounded-xl border border-slate-250 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs font-semibold leading-relaxed ${
+                      message.role === 'user'
+                        ? 'bg-slate-900 text-white'
+                        : message.type === 'error'
+                        ? 'bg-red-50 text-red-800 border border-red-100'
+                        : message.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                        : 'bg-white text-slate-700 border border-slate-200'
+                    }`}>
+                      {message.text}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-slate-200 bg-white p-3">
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={pageMailInput}
+                  onChange={event => setPageMailInput(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      handlePageMailSubmit();
+                    }
+                  }}
+                  placeholder="Type naturally - e.g. send May report to jayasree"
+                  className="min-h-[44px] max-h-[92px] flex-1 resize-none rounded-xl border border-slate-250 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                />
+                <button
+                  onClick={handlePageMailSubmit}
+                  className="size-11 rounded-xl bg-red-600 text-white flex items-center justify-center hover:bg-red-700"
+                >
+                  <Send className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* CUSTOM REPORTS MODAL */}
       {showCustomReportsModal && (
         <CustomReportsModalOverlay 
@@ -1015,6 +1441,11 @@ function CustomReportsModalOverlay({
   campaigns: any[];
   reportBreakdowns: any;
 }) {
+  const [showMailAgent, setShowMailAgent] = useState(false);
+  const [mailAgentInput, setMailAgentInput] = useState('');
+  const [mailDraft, setMailDraft] = useState<any>(null);
+  const [mailStep, setMailStep] = useState<'input' | 'draft'>('input');
+
   // Date formatting helper
   const formatDate = (dateString: string) => {
     try {
@@ -1146,6 +1577,71 @@ function CustomReportsModalOverlay({
     name: `CAI Mahindra ${reportTab} Report ${formatDate(dateFrom)} - ${formatDate(dateTo)}`,
     frequency: 'One-time',
   };
+  const mailContacts = [
+    { name: 'Jayasree', email: 'jayasree@example.com' },
+    { name: 'CAI Team', email: 'cai-team@example.com' },
+    { name: 'Venpep Team', email: 'team@venpep.com' },
+  ];
+  const currentReportLabel = `${reportTab === 'passenger' ? 'Passenger' : 'Commercial'} Executive Report`;
+  const mailSummary = `${currentReportLabel} for ${formatDate(dateFrom)} to ${formatDate(dateTo)}. Leads: ${exportLeads.toLocaleString('en-IN')}, Impressions: ${exportImpressions.toLocaleString('en-IN')}, Clicks: ${exportClicks.toLocaleString('en-IN')}, Spend: ${formatCurrency(exportSpend)}.`;
+
+  const buildMailDraft = () => {
+    const request = mailAgentInput.trim();
+    if (!request) {
+      toast.error('Type who should receive this report.');
+      return;
+    }
+
+    const normalized = request.toLowerCase();
+    const matchedContact = mailContacts.find(contact => normalized.includes(contact.name.toLowerCase()));
+    const emailMatch = request.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    const recipientName = matchedContact?.name || (emailMatch ? emailMatch[0].split('@')[0] : 'Recipient');
+    const recipientEmail = matchedContact?.email || emailMatch?.[0] || '';
+    const wantsShortSummary = /short|brief|summary|summar/i.test(request);
+    const subject = `CAI Mahindra ${reportTab === 'passenger' ? 'Passenger' : 'Commercial'} Report - ${formatDate(dateFrom)} to ${formatDate(dateTo)}`;
+    const body = [
+      `Hi ${recipientName},`,
+      '',
+      wantsShortSummary
+        ? `Sharing the ${currentReportLabel.toLowerCase()} for your review. ${mailSummary}`
+        : `Please find the ${currentReportLabel.toLowerCase()} for ${formatDate(dateFrom)} to ${formatDate(dateTo)}. ${mailSummary}`,
+      '',
+      'The report can be downloaded from the report screen in PDF, DOCX, or PPT format.',
+      '',
+      'Regards,',
+      'Venpep Group',
+    ].join('\n');
+
+    setMailDraft({
+      toName: recipientName,
+      toEmail: recipientEmail,
+      subject,
+      body,
+      attachment: `${reportExportMeta.name}.pdf / .docx / .pptx`,
+      needsEmail: !recipientEmail,
+    });
+    setMailStep('draft');
+  };
+
+  const resetMailAgent = () => {
+    setShowMailAgent(false);
+    setMailAgentInput('');
+    setMailDraft(null);
+    setMailStep('input');
+  };
+
+  const handleConfirmMail = () => {
+    if (!mailDraft?.toEmail) {
+      toast.error('Recipient email is required before sending.');
+      return;
+    }
+
+    const mailto = `mailto:${encodeURIComponent(mailDraft.toEmail)}?subject=${encodeURIComponent(mailDraft.subject)}&body=${encodeURIComponent(mailDraft.body)}`;
+    window.location.href = mailto;
+    toast.success('Email draft opened. Attach the downloaded report if your mail client does not add it automatically.');
+    resetMailAgent();
+  };
+
   const reportClient = {
     id: 'cai_mahindra',
     name: 'CAI Mahindra',
@@ -1515,6 +2011,121 @@ function CustomReportsModalOverlay({
             >
               <Download className="size-3.5 text-white" /> Download PDF
             </button>
+
+            {showMailAgent && (
+              <div className="absolute inset-0 z-[210] bg-slate-950/35 backdrop-blur-[2px] flex items-start justify-end p-4 no-print">
+                <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-slate-50">
+                    <div className="flex items-center gap-2">
+                      <div className="size-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+                        <Mail className="size-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-slate-900">Mail Agent</div>
+                        <div className="text-[11px] font-semibold text-slate-500">Draft mail from natural language</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={resetMailAgent}
+                      className="size-8 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+
+                  {mailStep === 'input' ? (
+                    <div className="p-5 space-y-4">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Current report</div>
+                        <div className="text-sm font-bold text-slate-900">{reportExportMeta.name}</div>
+                        <div className="text-xs text-slate-600 mt-1">{mailSummary}</div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                          What should I send?
+                        </label>
+                        <textarea
+                          value={mailAgentInput}
+                          onChange={event => setMailAgentInput(event.target.value)}
+                          placeholder="Share this May executive report to Jayasree with a short summary"
+                          className="w-full min-h-[110px] resize-none rounded-xl border border-slate-250 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setMailAgentInput('Share this executive report to Jayasree with a short summary')}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          Send to Jayasree
+                        </button>
+                        <button
+                          onClick={() => setMailAgentInput('Send this report to cai-team@example.com for review')}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          Send to email
+                        </button>
+                      </div>
+                      <button
+                        onClick={buildMailDraft}
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-3 text-sm font-black text-white"
+                      >
+                        <Sparkles className="size-4" /> Create Draft
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-5 space-y-4">
+                      <div className="rounded-xl border border-slate-200 overflow-hidden">
+                        <div className="grid grid-cols-[86px_1fr] border-b border-slate-200 text-sm">
+                          <div className="bg-slate-50 px-3 py-2 font-black text-slate-500">To</div>
+                          <input
+                            value={mailDraft?.toEmail || ''}
+                            onChange={event => setMailDraft((draft: any) => ({ ...draft, toEmail: event.target.value, needsEmail: !event.target.value }))}
+                            placeholder="Enter recipient email"
+                            className="px-3 py-2 font-semibold text-slate-900 outline-none"
+                          />
+                        </div>
+                        {mailDraft?.needsEmail && (
+                          <div className="px-3 py-2 bg-amber-50 text-[11px] font-semibold text-amber-800 border-b border-amber-100">
+                            I found the recipient name, but not the email. Enter the email before sending.
+                          </div>
+                        )}
+                        <div className="grid grid-cols-[86px_1fr] border-b border-slate-200 text-sm">
+                          <div className="bg-slate-50 px-3 py-2 font-black text-slate-500">Subject</div>
+                          <input
+                            value={mailDraft?.subject || ''}
+                            onChange={event => setMailDraft((draft: any) => ({ ...draft, subject: event.target.value }))}
+                            className="px-3 py-2 font-semibold text-slate-900 outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-[86px_1fr] border-b border-slate-200 text-sm">
+                          <div className="bg-slate-50 px-3 py-2 font-black text-slate-500">Attach</div>
+                          <div className="px-3 py-2 font-semibold text-slate-900">{mailDraft?.attachment}</div>
+                        </div>
+                        <textarea
+                          value={mailDraft?.body || ''}
+                          onChange={event => setMailDraft((draft: any) => ({ ...draft, body: event.target.value }))}
+                          className="w-full min-h-[190px] resize-none border-0 px-3 py-3 text-sm text-slate-800 outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setMailStep('input')}
+                          className="flex-1 rounded-xl border border-slate-250 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                        >
+                          Edit Request
+                        </button>
+                        <button
+                          onClick={handleConfirmMail}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-3 text-sm font-black text-white"
+                        >
+                          <Send className="size-4" /> Send Mail
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Printable Report Page Sheet */}
             <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-white scrollbar-thin">

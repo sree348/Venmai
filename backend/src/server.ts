@@ -20,6 +20,7 @@ import { syncRouter } from './routes/sync.routes.js';
 import { brainRouter } from './routes/brain.routes.js';
 import { reportRouter } from './routes/report.routes.js';
 import { googleRouter } from './routes/google.route.js';
+import { mailRouter } from './routes/mail.routes.js';
 import { startMetaSyncJob, initializeMetaConnectionFromEnv } from './jobs/meta.sync.job.js';
 import { setIo } from './services/realtime.service.js';
 import { exportAgentDataSnapshotsForTenant } from './services/ai-brain.service.js';
@@ -93,6 +94,7 @@ app.use('/api/v1', platformConnectionsRouter);
 app.use('/api/v1', syncRouter);
 app.use('/api/v1', brainRouter);
 app.use('/api/v1', reportRouter);
+app.use('/api/v1', mailRouter);
 
 app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   res.status(500).json({
