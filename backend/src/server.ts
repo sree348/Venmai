@@ -126,10 +126,8 @@ function refreshAgentSnapshot() {
 cron.schedule('*/30 * * * *', refreshAgentSnapshot);
 refreshAgentSnapshot();
 
-if (process.env.NODE_ENV !== 'production') {
-  httpServer.listen(port, () => {
-    console.log(`MIP backend listening on http://localhost:${port}`);
-  });
-}
+httpServer.listen(port, '0.0.0.0', () => {
+  console.log(`MIP backend listening on 0.0.0.0:${port}`);
+});
 
 export { app };
