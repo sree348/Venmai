@@ -55,7 +55,14 @@ dashboardRouter.get('/dashboard/summary', requireJwtAuth, async (req: Authentica
       FROM campaign_data
       WHERE ${baseWhere(req, false)}
     `;
-    const summary = rows[0] || {};
+    const summary = rows[0] || {
+      totalSpend: 0,
+      cpc: null,
+      totalClicks: 0,
+      avgFrequency: 0,
+      totalConversions: 0,
+      blendedRoas: null,
+    };
 
     return res.json({
       ...summary,

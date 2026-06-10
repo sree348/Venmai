@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "db:generate": "prisma generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "prisma db push",
