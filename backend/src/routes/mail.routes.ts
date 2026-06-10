@@ -291,7 +291,7 @@ async function generateDocxReport(data: Awaited<ReturnType<typeof getCampaignRep
                 row.campaignName,
                 row.platform,
                 money(spend),
-                Number(row.clicks || 0).toLocaleString('en-IN'),
+          Number(row.clicks || 0).toLocaleString('en-IN'),
                 leads.toLocaleString('en-IN'),
                 leads > 0 ? money(spend / leads, 2) : '-',
               ].map(value => createTableCell(String(value))) });

@@ -4,7 +4,7 @@ const GRAPH_BASE_URL = 'https://graph.facebook.com/v19.0';
 const META_SCOPES = ['ads_read', 'ads_management', 'business_management'];
 
 function requireEnv(name: string) {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
 
   if (!value) {
     throw new Error(`${name} is required for Meta OAuth.`);
