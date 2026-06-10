@@ -12,6 +12,17 @@ import { getTenantId, requireJwtAuth, type AuthenticatedRequest } from '../middl
 
 export const metaRouter = Router();
 
+function getFrontendUrl(req: { protocol: string; get(name: string): string | undefined }) {
+  const configuredUrl = process.env.FRONTEND_URL || process.env.APP_PUBLIC_URL || process.env.RAILWAY_PUBLIC_DOMAIN;
+  if (configuredUrl) {
+    const normalized = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+    return normalized.replace(/\/+$/, '');
+  }
+
+  const host = req.get('host');
+  return `${req.protocol}://${host}`.replace(/\/+$/, '');
+}
+
 metaRouter.get('/auth/meta/connect', (req, res, next) => {
   try {
     const tenantId = String(req.query.tenantId || req.headers['x-tenant-id'] || 'agency');
@@ -54,11 +65,20 @@ metaRouter.get('/auth/meta/callback', async (req, res, next) => {
       console.error(`Meta initial sync failed for tenant ${tenantId}`, error);
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getFrontendUrl(req);
     return res.redirect(`${frontendUrl}/dashboard?connected=true`);
   } catch (error) {
     return next(error);
   }
+});
+
+metaRouter.get('/auth/meta/debug-url', (req, res) => {
+  return res.json({
+    frontendUrl: getFrontendUrl(req),
+    FRONTEND_URL: process.env.FRONTEND_URL || null,
+    APP_PUBLIC_URL: process.env.APP_PUBLIC_URL || null,
+    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN || null,
+  });
 });
 
 metaRouter.get('/auth/meta/status', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {

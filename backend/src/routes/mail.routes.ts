@@ -866,6 +866,51 @@ async function sendSmtpMail({
   socket.end();
 }
 
+async function sendBrevoApiMail({
+  recipients,
+  subject,
+  htmlBody,
+  attachments,
+}: {
+  recipients: string[];
+  subject: string;
+  htmlBody: string;
+  attachments: MailAttachment[];
+}) {
+  const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+  const from = process.env.MAIL_FROM || process.env.SMTP_FROM;
+  const fromName = process.env.MAIL_FROM_NAME || 'Venpep Reports';
+
+  if (!apiKey || !from) {
+    throw new Error('Brevo API mail credentials are not configured.');
+  }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': apiKey,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { email: from, name: fromName },
+      to: recipients.map(address => ({ email: address })),
+      subject,
+      htmlContent: htmlBody,
+      attachment: attachments.map(attachment => ({
+        name: attachment.name,
+        content: attachment.contentBytes,
+      })),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[MailAgent] Brevo API send failed:', response.status, errorText);
+    throw new Error(`Brevo API error ${response.status}: ${errorText}`);
+  }
+}
+
 mailRouter.post('/mail/send', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const tenantId = req.auth!.tenantId || 'agency';
@@ -936,7 +981,21 @@ mailRouter.post('/mail/send', requireJwtAuth, async (req: AuthenticatedRequest, 
     }
 
     const provider = String(process.env.MAIL_PROVIDER || 'outlook').toLowerCase();
-    if (provider === 'brevo' || provider === 'smtp') {
+    if (provider === 'brevo') {
+      await sendBrevoApiMail({ recipients, subject, htmlBody, attachments });
+      return res.json({
+        ok: true,
+        provider,
+        sentTo: recipients,
+        attachmentCount: attachments.length,
+        bestCampaign: data.bestCampaign ? {
+          name: data.bestCampaign.campaignName,
+          cpl: data.bestCampaign.cpl,
+        } : null,
+      });
+    }
+
+    if (provider === 'smtp') {
       await sendSmtpMail({ recipients, subject, htmlBody, attachments });
       return res.json({
         ok: true,
