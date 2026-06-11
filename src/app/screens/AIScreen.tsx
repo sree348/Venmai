@@ -2120,6 +2120,36 @@ export default function AIScreen() {
     }
   }, [isLoadingHistory, activeView]);
 
+  const persistActiveSessionMessages = (nextMessages: any[]) => {
+    if (!activeSessionId || sessions.length === 0) return;
+
+    const activeSession = sessions.find(s => s.id === activeSessionId);
+    if (!activeSession) return;
+
+    let nextTitle = activeSession.title;
+    if (nextTitle === 'New Chat' || nextTitle === 'Untitled Chat') {
+      const firstUser = nextMessages.find(m => m.role === 'user');
+      if (firstUser?.content) {
+        const words = firstUser.content.split(' ').slice(0, 5).join(' ');
+        nextTitle = words.length > 28 ? `${words.slice(0, 26)}...` : words;
+      }
+    }
+
+    const updatedSession = {
+      ...activeSession,
+      title: nextTitle,
+      messages: nextMessages,
+      updatedAt: new Date().toISOString(),
+    };
+    const updatedSessions = [
+      updatedSession,
+      ...sessions.filter(s => s.id !== activeSessionId),
+    ];
+
+    setSessions(updatedSessions);
+    localStorage.setItem(`marketiq.chats.${tenantId}`, JSON.stringify(updatedSessions));
+  };
+
   const copyMessageToClipboard = async (content: string, key: string) => {
     if (!content?.trim()) return;
 
@@ -2178,7 +2208,9 @@ export default function AIScreen() {
       content: promptText,
       createdAt: new Date().toISOString(),
     };
-    setMessages(prev => [...prev, userMsg]);
+    const messagesWithUser = [...messages, userMsg];
+    setMessages(messagesWithUser);
+    persistActiveSessionMessages(messagesWithUser);
     setInput('');
     setIsTyping(true);
 
@@ -2202,28 +2234,34 @@ export default function AIScreen() {
         createdAt: new Date().toISOString(),
       };
 
-      setMessages(prev => [...prev, assistantMsg]);
+      const messagesWithAssistant = [...messagesWithUser, assistantMsg];
+      setMessages(messagesWithAssistant);
+      persistActiveSessionMessages(messagesWithAssistant);
     } catch (error: any) {
       console.error('Chat submit failed:', error);
       if (isGenericConversation(promptText)) {
-        setIsTyping(false);
-        setMessages(prev => [...prev, {
+        const fallbackMessages = [...messagesWithUser, {
           role: 'assistant',
           content: buildGenericAgentReply(promptText),
           widget: null,
           createdAt: new Date().toISOString(),
-        }]);
+        }];
+        setIsTyping(false);
+        setMessages(fallbackMessages);
+        persistActiveSessionMessages(fallbackMessages);
         return;
       }
 
       const fallback = buildSeniorFallbackResponse(promptText, campaigns, activeClient?.name);
-      setIsTyping(false);
-      setMessages(prev => [...prev, {
+      const fallbackMessages = [...messagesWithUser, {
         role: 'assistant',
         content: fallback.insight,
         widget: fallback.widget,
         createdAt: new Date().toISOString(),
-      }]);
+      }];
+      setIsTyping(false);
+      setMessages(fallbackMessages);
+      persistActiveSessionMessages(fallbackMessages);
 
       const isNetworkError = !error?.message?.includes('API request failed');
 
