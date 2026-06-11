@@ -44,12 +44,26 @@ async function streamRequest(
   });
 
   if (!response.ok || !response.body) {
-    throw new Error(`API stream failed: ${response.status} ${response.statusText}`);
+    let detail = '';
+    try {
+      const errorText = await response.text();
+      if (errorText) {
+        const parsed = JSON.parse(errorText);
+        detail = parsed?.error || parsed?.message || errorText;
+      }
+    } catch {
+      // Keep the status-only error when the response body is unavailable or not JSON.
+    }
+
+    throw new Error(
+      `API stream failed: ${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`,
+    );
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamError: Error | null = null;
 
   const flushEvent = (rawEvent: string) => {
     const eventLine = rawEvent.split('\n').find(line => line.startsWith('event:'));
@@ -66,9 +80,11 @@ async function streamRequest(
       } else if (event === 'done') {
         handlers.onDone(payload);
       } else if (event === 'error') {
-        handlers.onError?.(new Error(payload.error || 'Stream error'));
+        streamError = new Error(payload.error || 'Stream error');
+        handlers.onError?.(streamError);
       }
     } catch (error: any) {
+      streamError = error;
       handlers.onError?.(error);
     }
   };
@@ -85,6 +101,10 @@ async function streamRequest(
 
   if (buffer.trim()) {
     flushEvent(buffer);
+  }
+
+  if (streamError) {
+    throw streamError;
   }
 }
 

@@ -41,6 +41,23 @@ const getChipsForPage = (page: string | undefined): string[] => {
   }
 };
 
+const getPageKeyFromPath = (path: string) => {
+  switch (path) {
+    case '/dashboard':
+      return 'agency_overview';
+    case '/campaigns':
+      return 'campaigns';
+    case '/brain':
+      return 'ai_brain';
+    case '/analytics':
+      return 'analytics';
+    case '/ai-analysis':
+      return 'ai_analysis';
+    default:
+      return path.substring(1) || 'general';
+  }
+};
+
 export default function FloatingAIAgent() {
   const { 
     isOpen, 
@@ -64,29 +81,7 @@ export default function FloatingAIAgent() {
 
   // Master route pathname-to-pageContext synchronizer to guarantee the page is always correct
   useEffect(() => {
-    const path = location.pathname;
-    let pageKey = '';
-    
-    switch (path) {
-      case '/dashboard':
-        pageKey = 'agency_overview';
-        break;
-      case '/campaigns':
-        pageKey = 'campaigns';
-        break;
-      case '/brain':
-        pageKey = 'ai_brain';
-        break;
-      case '/analytics':
-        pageKey = 'analytics';
-        break;
-      case '/ai-analysis':
-        pageKey = 'ai_analysis';
-        break;
-      default:
-        pageKey = path.substring(1) || 'general';
-        break;
-    }
+    const pageKey = getPageKeyFromPath(location.pathname);
 
     const richPages = ['agency_overview', 'campaigns', 'ai_brain', 'analytics', 'ai_analysis', 'dashboards', 'clients'];
     if (pageContext?.page !== pageKey) {
@@ -198,7 +193,12 @@ export default function FloatingAIAgent() {
       };
       addMessage(botMsg);
 
-      await apiService.streamChat(textToSend.trim(), clientId, historyPayload, pageContext, {
+      const activePageContext = pageContext || {
+        page: getPageKeyFromPath(location.pathname),
+        data: {},
+      };
+
+      await apiService.streamChat(textToSend.trim(), clientId, historyPayload, activePageContext, {
         onToken: (token) => {
           streamedContent += token;
           updateMessage(botMessageId, { content: streamedContent });
@@ -222,10 +222,11 @@ export default function FloatingAIAgent() {
       }
     } catch (err: any) {
       console.error('Failed to get AI Agent response:', err);
-      toast.error('AI assistant failed to analyze the screen.');
+      const errorMessage = err?.message || 'Unknown AI Agent error';
+      toast.error(`AI assistant failed: ${errorMessage}`);
       addMessage({
         role: 'assistant',
-        content: 'Sorry, I encountered an issue querying the database for this screen context. Please try again.',
+        content: `Sorry, I encountered an issue analyzing this screen context.\n\n${errorMessage}`,
         createdAt: new Date().toISOString(),
       });
     } finally {

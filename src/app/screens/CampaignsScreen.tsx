@@ -173,6 +173,29 @@ const getFormatBadgeStyle = (format: string) => {
   return 'bg-sky-50 text-sky-750 border-sky-250';
 };
 
+function campaignLatestTime(campaign: any) {
+  const explicitDate =
+    campaign.createdAt ||
+    campaign.created_at ||
+    campaign.createdTime ||
+    campaign.created_time ||
+    campaign.updatedAt ||
+    campaign.updated_at ||
+    campaign.start_date ||
+    campaign.end_date;
+
+  if (explicitDate) {
+    const timestamp = new Date(explicitDate).getTime();
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+
+  if (campaign.year && campaign.month) {
+    return new Date(Number(campaign.year), Number(campaign.month) - 1, 15).getTime();
+  }
+
+  return 0;
+}
+
 export default function CampaignsScreen() {
   const {
     scopedCampaigns: campaigns,
@@ -357,9 +380,9 @@ export default function CampaignsScreen() {
       return true;
     })
     .sort((a, b) => {
-      // Sort by year then month descending so most recent first
-      if (b.year !== a.year) return b.year - a.year;
-      return b.month - a.month;
+      const latestDiff = campaignLatestTime(b) - campaignLatestTime(a);
+      if (latestDiff !== 0) return latestDiff;
+      return String(b.id || b.name || '').localeCompare(String(a.id || a.name || ''));
     });
 
   const { setPageContext } = useAgentStore();

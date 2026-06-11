@@ -447,37 +447,48 @@ export async function* streamAgentChatReply(params: {
     new HumanMessage(prompt),
   ];
   const streamStartedAt = Date.now();
-  const stream = await traceRunnableStep(
-    'ai_brain_stream_start',
-    {
-      prompt,
-      snapshotChars: mdSnapshot.length,
-      historyTurns: conversationHistory.length,
-    },
-    () => model.stream(messages, {
-      runName: 'ai_brain_stream_llm',
-      metadata: {
-        model: modelName,
-        stage: 'llm_call',
-        streaming: true,
-        historyTurns: conversationHistory.length,
-        snapshotChars: mdSnapshot.length,
-      },
-    } as any),
-    {
+  console.log('[LangSmith]', {
+    runName: 'ai_brain_stream_start',
+    tracing: process.env.LANGCHAIN_TRACING_V2,
+    project: process.env.LANGCHAIN_PROJECT || 'mip-agent',
+    model: modelName,
+    streaming: true,
+  });
+
+  const stream = await model.stream(messages, {
+    runName: 'ai_brain_stream_llm',
+    metadata: {
       model: modelName,
       stage: 'llm_call',
       streaming: true,
+      historyTurns: conversationHistory.length,
+      snapshotChars: mdSnapshot.length,
     },
-  );
+  } as any);
   let streamedOutput = '';
 
-  for await (const chunk of stream) {
-    const text = messageContentToText(chunk.content);
-    if (text) {
-      streamedOutput += text;
-      yield text;
+  if (stream && typeof (stream as any)[Symbol.asyncIterator] === 'function') {
+    for await (const chunk of stream as AsyncIterable<any>) {
+      const text = messageContentToText(chunk.content);
+      if (text) {
+        streamedOutput += text;
+        yield text;
+      }
     }
+  } else {
+    const fallbackMessage = await model.invoke(messages, {
+      runName: 'ai_brain_stream_fallback_llm',
+      metadata: {
+        model: modelName,
+        stage: 'llm_call',
+        streamingFallback: true,
+        historyTurns: conversationHistory.length,
+        snapshotChars: mdSnapshot.length,
+      },
+    } as any);
+    const text = messageContentToText((fallbackMessage as any).content);
+    streamedOutput += text;
+    yield text;
   }
 
   logLlmCost(
