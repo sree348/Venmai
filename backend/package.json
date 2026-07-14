@@ -8,7 +8,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:push": "prisma db push",
-    "db:seed": "tsx src/db/seed-from-csv.ts",
+    "db:seed": "node dist/db/seed-from-csv.js",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
