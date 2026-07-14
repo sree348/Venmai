@@ -330,7 +330,7 @@ function ShareModal({ onClose, name }: { onClose: () => void; name: string }) {
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
-        <p className="text-[11px] text-slate-400 text-center">For PowerPoint export, upgrade to MIP Pro</p>
+        <p className="text-[11px] text-slate-400 text-center">For PowerPoint export, upgrade to Venmai Pro</p>
       </motion.div>
     </motion.div>
   );

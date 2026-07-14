@@ -218,7 +218,7 @@ creatives
 campaign_daily_metrics
 adset_daily_metrics
 ad_daily_metrics
-conversion_events
+conversion_events     
 ```
 
 Example structure:
@@ -261,7 +261,7 @@ The current `campaign_data` table mixes campaign identity and daily metrics in o
 
 ### Module 6: Reporting and Analytics Layer
 
-Purpose:
+Purpose: 
 
 Provide fast, consistent data for dashboards, reports, and AI.
 

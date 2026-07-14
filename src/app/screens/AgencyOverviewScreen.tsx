@@ -443,8 +443,7 @@ export default function AgencyOverviewScreen() {
       '',
       '',
       'Regards,',
-      'MIP AI Brain',
-    
+      'Venmai AI Brain',
     ].join('\n');
   };
 

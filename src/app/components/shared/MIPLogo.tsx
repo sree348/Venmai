@@ -12,7 +12,7 @@ export default function MIPLogo({ className, fill, fillRule, ...props }: MIPLogo
   return (
     <img
       src={mipLogo}
-      alt="MIP Logo"
+      alt="Venmai Logo"
       className={className}
       style={{ display: 'block', maxHeight: '100%', objectFit: 'contain', ...props.style }}
       {...props}

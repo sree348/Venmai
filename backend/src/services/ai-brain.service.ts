@@ -34,10 +34,10 @@ export const AI_BRAIN_FRAMEWORK = {
 };
 
 // ─── Tone ────────────────────────────────────────────────────────────────────
-export const MIP_AI_TONE =
+export const Venmai_AI_TONE =
   'Concise, direct, data-grounded. Answer in 1-4 sentences. No emojis, no tables, no decorative formatting. Say what matters and stop.';
 
-export const MARBLISM_AI_TONE = MIP_AI_TONE;
+export const MARBLISM_AI_TONE = Venmai_AI_TONE;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type AiIntent = 'knowledge_base' | 'meta_ads_search' | 'ambiguous_followup';
@@ -76,8 +76,8 @@ const META_ANALYTICS_TERMS = [
   'urgent', 'immediate', 'compare', 'why', 'how much',
 ];
 
-const MIP_KNOWLEDGE_TERMS = [
-  'mip', 'marketiq', 'market iq', 'ai brain', 'brain',
+const Venmai_KNOWLEDGE_TERMS = [
+  'venmai', 'marketiq', 'market iq', 'ai brain', 'brain',
   'product', 'platform', 'feature', 'features', 'dashboard', 'dashboards',
   'what can you do', 'how do i use', 'how to use', 'who built', 'about you',
 ];
@@ -210,11 +210,11 @@ export async function classifyAiIntent(
   // This is intentional so that Tamil greeting patterns (/வணக்கம்/, /நன்றி/) match correctly,
   // preventing changes to 'normalized' from accidentally breaking Tamil support.
   const hasMetaTerm = META_ANALYTICS_TERMS.some(term => normalized.includes(term));
-  const hasMipKnowledgeTerm = MIP_KNOWLEDGE_TERMS.some(term => normalized.includes(term));
+  const hasMipKnowledgeTerm = Venmai_KNOWLEDGE_TERMS.some(term => normalized.includes(term));
   const hasExplicitAnalyticsTerm = EXPLICIT_ANALYTICS_TERMS.some(term => normalized.includes(term));
 
   if (hasMipKnowledgeTerm && !hasExplicitAnalyticsTerm) {
-    return { intent: 'knowledge_base', confidence: 'high', detected_entities: ['MIP'] };
+    return { intent: 'knowledge_base', confidence: 'high', detected_entities: ['Venmai'] };
   }
 
   if (!hasMetaTerm && GREETING_PATTERNS.some(pattern => pattern.test(prompt))) {
@@ -296,14 +296,14 @@ export async function buildKnowledgeBaseReply(
       : 'I remember the recent chat in this session.';
   }
 
-  if (/\bthanks?\b|\bthank\s+you\b|à®¨à®©à¯à®±à®¿/.test(normalized)) {
+  if (/\bthanks?\b|\bthank\s+you\b|நன்றி/.test(normalized)) {
     return 'You are welcome.';
   }
   if (/\bwhat\s+can\s+you\s+do\b|\bhelp\b|\bfeatures?\b|\bdashboards?\b|\breports?\b|\bintegrations?\b/.test(normalized)) {
     return 'I analyze campaign data to spot waste, fatigue, and scaling opportunities across Meta and Google Ads.';
   }
-  if (/\bmip\b|\bmarketiq\b|\bmarket iq\b|\bai brain\b|\bbrain\b|\bproduct\b|\bplatform\b/.test(normalized)) {
-    return 'MIP is a marketing intelligence platform that analyzes campaign performance and recommends next actions.';
+  if (/\bvenmai\b|\bmarketiq\b|\bmarket iq\b|\bai brain\b|\bbrain\b|\bproduct\b|\bplatform\b/.test(normalized)) {
+    return 'Venmai is a marketing intelligence platform that analyzes campaign performance and recommends next actions.';
   }
   if (/\bwho\s+are\s+you\b/.test(normalized)) {
     return "I am a marketing intelligence assistant for campaign health, budget risk, and platform guidance.";
@@ -334,8 +334,8 @@ export async function buildKnowledgeBaseReply(
   if (/\bthanks?\b|\bthank\s+you\b|நன்றி/.test(fallbackNormalized)) {
     return 'You are welcome.';
   }
-  if (/\bmip\b|\bmarketiq\b|\bmarket iq\b|\bai brain\b|\bbrain\b/.test(fallbackNormalized)) {
-    return 'MIP is a marketing intelligence platform that analyzes campaign performance and recommends next actions.';
+  if (/\bvenmai\b|\bmarketiq\b|\bmarket iq\b|\bai brain\b|\bbrain\b/.test(fallbackNormalized)) {
+    return 'Venmai is a marketing intelligence platform that analyzes campaign performance and recommends next actions.';
   }
   if (/\bwho\s+are\s+you\b/.test(fallbackNormalized)) {
     return "I am a marketing intelligence assistant for campaign health, budget risk, and platform guidance.";
@@ -450,7 +450,7 @@ export async function* streamAgentChatReply(params: {
   console.log('[LangSmith]', {
     runName: 'ai_brain_stream_start',
     tracing: process.env.LANGCHAIN_TRACING_V2,
-    project: process.env.LANGCHAIN_PROJECT || 'mip-agent',
+    project: process.env.LANGCHAIN_PROJECT || 'venmai-agent',
     model: modelName,
     streaming: true,
   });
@@ -804,10 +804,10 @@ export async function exportAgentDataSnapshot(tenantId: string, clientId?: strin
   });
 
   const md = [
-    '# MIP AI Brain — Agent Data Snapshot',
+    '# Venmai AI Brain — Agent Data Snapshot',
     '',
     `**Framework:** ${AI_BRAIN_FRAMEWORK.framework} + ${AI_BRAIN_FRAMEWORK.modelProvider}`,
-    `**Tone:** ${MIP_AI_TONE}`,
+    `**Tone:** ${Venmai_AI_TONE}`,
     `**Date window:** ${AI_BRAIN_DATE_WINDOW.from} → ${AI_BRAIN_DATE_WINDOW.to}`,
     `**Tenant:** ${tenantId}`,
     `**Client scope:** ${clientId ?? 'agency'}`,
@@ -856,7 +856,7 @@ export async function exportAgentDataSnapshot(tenantId: string, clientId?: strin
     '- Use charts only when they clarify a comparison, trend, forecast, or requested visual.',
     '',
     `### Tone`,
-    MIP_AI_TONE,
+    Venmai_AI_TONE,
   ].join('\n');
 
   await Promise.all([

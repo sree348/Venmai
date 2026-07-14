@@ -97,9 +97,9 @@ function buildGenericAgentReply(prompt: string) {
     return 'You are welcome. I am here when you want a clean read on CAI Media campaign movement, waste, fatigue, or scaling opportunities.';
   }
   if (/\bwho\s+are\s+you\b|\bwhat\s+can\s+you\s+do\b/.test(normalized)) {
-    return 'I am MIP AI Brain, your marketing intelligence assistant. I can explain MIP, read campaign data, diagnose spend, CPL, CTR, CPM, ROAS, frequency, budget waste, and recommend what to pause or scale.';
+    return 'I am Venmai AI Brain, your marketing intelligence assistant. I can explain Venmai, read campaign data, diagnose spend, CPL, CTR, CPM, ROAS, frequency, budget waste, and recommend what to pause or scale.';
   }
-  return 'Hi. I am MIP AI Brain. Ask me about MIP, dashboards, reports, integrations, or tell me which campaign you want me to inspect.';
+  return 'Hi. I am Venmai AI Brain. Ask me about Venmai, dashboards, reports, integrations, or tell me which campaign you want me to inspect.';
 }
 
 const BENCHMARKS = {
@@ -3173,7 +3173,7 @@ export default function AIScreen() {
                         className="size-1.5 bg-indigo-500 rounded-full"
                       />
                     ))}
-                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1 font-sans">MIP AI Brain is thinking...</span>
+                    <span className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-widest ml-1 font-sans">Venmai AI Brain is thinking...</span>
                   </div>
                 </div>
               )}

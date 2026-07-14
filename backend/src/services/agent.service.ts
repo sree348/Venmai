@@ -116,7 +116,7 @@ function cleanAgentFinalAnswer(answer: string): string {
   if (!answer) return answer;
   let clean = answer.trim();
 
-  const oldHeaderPattern = /###\s*(?:Ã°Å¸Å¡Â¨|URGENT).*?\n[\s\S]*?###\s*(?:Ã¢Å“â€¦|PRIORITY).*?\n/i;
+  const oldHeaderPattern = /###\s*(?:🚨|URGENT).*?\n[\s\S]*?###\s*(?:✅|PRIORITY).*?\n/i;
   if (oldHeaderPattern.test(clean) && !clean.includes('```chartdata')) {
     clean = clean.replace(oldHeaderPattern, '').trim();
   }
@@ -472,7 +472,7 @@ function getMarketingBenchmarks(): string {
 - BRANDING campaign names contain Branding, Insta, or eSUV. Primary focus: CPM, Engagement Rate, Frequency, and Reach. Efficient CPM below \\u20B960, frequency risk above 4.0.
 - Industry CPC context for India auto/retail campaigns: efficient below \\u20B980, watch \\u20B980-\\u20B9150, poor above \\u20B9150.
 - Industry CPL context for Indian automotive lead generation: efficient below \\u20B9250, watch \\u20B9250-\\u20B9500, poor above \\u20B9500. Flag CPL below the relevant industry average as "ðŸ”µ opportunity".
-- Trend context: show spend, CPL, and CTR as â†‘/â†“ percentage deltas when previous-window data exists. If prior-period data is missing, mark Trend as not available.
+- Trend context: show spend, CPL, and CTR as ↑/↓ percentage deltas when previous-window data exists. If prior-period data is missing, mark Trend as not available.
 - Budget pacing context: daily burn = spend divided by elapsed days in the window. If projected spend exceeds budget before the window end, flag "ðŸš¨ Budget Risk".
 - Creative fatigue context: frequency > 3.0 plus declining CTR requires a creative refresh recommendation. Frequency > 4.0 is urgent even if days-since-change is unavailable.
 - Standard delivery metrics (Spend, Clicks, Impressions, CTR, CPC, Frequency) are tracked and can be reported for all campaign types.
@@ -802,8 +802,8 @@ Rules:
 2. Use 1-4 sentences. Every claim needs a number.
 3. No emojis, no decorative formatting, no tables unless essential.
 4. No suggested follow-up questions. For new-campaign / full-funnel strategy requests, include the required sticky hook.
-5. End with a decision â€” what to do and why.
-6. Use â‚¹. Never describe how you arrived at the answer.
+5. End with a decision — what to do and why.
+6. Use ₹. Never describe how you arrived at the answer.
 7. Do NOT wrap the entire response in JSON. Output raw text.`),
       ];
       const fallbackResponse = await traceRunnableStep(
