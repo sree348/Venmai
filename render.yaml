@@ -29,7 +29,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: venmai-postgres
+          name: mip-postgres-db
           property: connectionString
       - key: JWT_SECRET
         value: dev-secret
@@ -48,6 +48,7 @@ services:
       - key: OPENAI_MINI_MODEL
         value: gpt-4o-mini
 
+# Reuse existing free DB (Render allows only one free Postgres).
 databases:
-  - name: venmai-postgres
+  - name: mip-postgres-db
     plan: free
