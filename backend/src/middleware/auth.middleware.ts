@@ -36,6 +36,29 @@ export function requireJwtAuth(req: AuthenticatedRequest, res: Response, next: N
   }
 }
 
+/** Accepts bearer JWT when present; otherwise continues with x-tenant-id fallbacks. */
+export function optionalJwtAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const header = req.headers.authorization;
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null;
+  if (!token) return next();
+
+  try {
+    const secret = process.env.JWT_SECRET || 'dev-secret';
+    const payload = jwt.verify(token, secret) as jwt.JwtPayload & { tenantId?: string; sub?: string };
+    const tenantId = payload.tenantId || String(payload.sub || '');
+    if (tenantId) {
+      req.auth = {
+        tenantId,
+        userId: payload.sub,
+      };
+    }
+  } catch {
+    // Ignore invalid token for read endpoints; requireJwtAuth still protects writes.
+  }
+
+  return next();
+}
+
 export function getTenantId(req: AuthenticatedRequest) {
   return req.auth?.tenantId || String(req.headers['x-tenant-id'] || req.query.tenantId || req.body?.tenantId || 'agency');
 }

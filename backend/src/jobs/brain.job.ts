@@ -106,15 +106,13 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
 
   console.log(`Formatted ${campaignsList.length} campaigns for Groq analysis.`);
 
-  // 3. Query LLM (OpenAI or Claude)
+  // 3. Query LLM (OpenAI or Claude) for narrative insights — optional
   const openaiApiKey = process.env.OPENAI_API_KEY;
   const anthropicApiKey = getAnthropicApiKey();
 
   if (!openaiApiKey && !anthropicApiKey) {
-    console.error('Neither OPENAI_API_KEY nor CLAUDE_API_KEY/ANTHROPIC_API_KEY is configured. Skipping insights generation.');
-    return;
-  }
-
+    console.warn('Neither OPENAI_API_KEY nor CLAUDE_API_KEY/ANTHROPIC_API_KEY is configured. Skipping LLM insights; still computing scores.');
+  } else {
   try {
     let model: any;
     if (anthropicApiKey) {
@@ -207,6 +205,7 @@ export async function runBrainAnalysis(clientId: string, tenantId: string = 'age
     console.log('Insights saved successfully!');
   } catch (error) {
     console.error('Failed to generate insights from OpenAI:', error);
+  }
   }
 
   // 4. Calculate and store Campaign Scores

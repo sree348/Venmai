@@ -24,6 +24,7 @@ import { mailRouter } from './routes/mail.routes.js';
 import { startMetaSyncJob, initializeMetaConnectionFromEnv } from './jobs/meta.sync.job.js';
 import { setIo } from './services/realtime.service.js';
 import { exportAgentDataSnapshotsForTenant } from './services/ai-brain.service.js';
+import { runBrainAnalysis } from './jobs/brain.job.js';
 
 // Setup global error and promise rejection handlers to protect process stability
 process.on('unhandledRejection', (reason, promise) => {
@@ -135,6 +136,10 @@ function refreshAgentSnapshot() {
 
 cron.schedule('*/30 * * * *', refreshAgentSnapshot);
 refreshAgentSnapshot();
+
+void runBrainAnalysis('agency')
+  .then(() => console.log('[Brain] startup analysis complete'))
+  .catch(error => console.error('[Brain] startup analysis failed:', error));
 
 httpServer.listen(port, '0.0.0.0', () => {
   console.log(`MIP backend listening on 0.0.0.0:${port}`);

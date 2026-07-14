@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../services/prisma.service.js';
 import { runBrainAnalysis } from '../jobs/brain.job.js';
-import { requireJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
+import { requireJwtAuth, optionalJwtAuth, type AuthenticatedRequest } from '../middleware/auth.middleware.js';
 import { ChatGroq } from '@langchain/groq';
 import { SystemMessage } from '@langchain/core/messages';
 import {
@@ -14,7 +14,7 @@ import {
 export const brainRouter = Router();
 
 // GET /api/v1/brain/insights?clientId=
-brainRouter.get('/brain/insights', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+brainRouter.get('/brain/insights', optionalJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const clientId = (req.query.clientId as string) || 'agency';
     
@@ -31,7 +31,7 @@ brainRouter.get('/brain/insights', requireJwtAuth, async (req: AuthenticatedRequ
 });
 
 // GET /api/v1/brain/scores?clientId=
-brainRouter.get('/brain/scores', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+brainRouter.get('/brain/scores', optionalJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const clientId = (req.query.clientId as string) || 'agency';
     
@@ -47,7 +47,7 @@ brainRouter.get('/brain/scores', requireJwtAuth, async (req: AuthenticatedReques
 });
 
 // POST /api/v1/brain/sync
-brainRouter.post('/brain/sync', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+brainRouter.post('/brain/sync', optionalJwtAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const clientId = req.body.clientId || 'agency';
     

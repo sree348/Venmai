@@ -240,10 +240,10 @@ export default function CampaignsScreen() {
   const [platformFilter, setPlatformFilter] = useState<'all' | 'meta' | 'google'>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [showCalendarDropdown, setShowCalendarDropdown] = useState(false);
-  const [selectedRangeLabel, setSelectedRangeLabel] = useState('1 May 2026 - 25 May 2026');
+  const [selectedRangeLabel, setSelectedRangeLabel] = useState('20 Apr 2026 - 31 May 2026');
 
-  // Calendar month/year navigation state (Left month is indexed 4 = May 2026)
-  const [leftMonth, setLeftMonth] = useState<number>(4);
+  // Calendar month/year navigation state (Left month is indexed 3 = April 2026)
+  const [leftMonth, setLeftMonth] = useState<number>(3);
   const [leftYear, setLeftYear] = useState<number>(2026);
 
   const rightMonth = (leftMonth + 1) % 12;
@@ -284,10 +284,10 @@ export default function CampaignsScreen() {
   };
 
   // Advanced Meta-style Date Range Picker States
-  const [startDate, setStartDate] = useState<string>('2026-05-01');
-  const [endDate, setEndDate] = useState<string>('2026-05-25');
-  const [tempStartDate, setTempStartDate] = useState<string>('2026-05-01');
-  const [tempEndDate, setTempEndDate] = useState<string>('2026-05-25');
+  const [startDate, setStartDate] = useState<string>('2026-04-20');
+  const [endDate, setEndDate] = useState<string>('2026-05-31');
+  const [tempStartDate, setTempStartDate] = useState<string>('2026-04-20');
+  const [tempEndDate, setTempEndDate] = useState<string>('2026-05-31');
   const [selectedPreset, setSelectedPreset] = useState<string>('custom');
   const [compareEnabled, setCompareEnabled] = useState<boolean>(false);
   const [comparePreset, setComparePreset] = useState<string>('previous_period');
@@ -374,7 +374,7 @@ export default function CampaignsScreen() {
       }
       // Meta-style Custom Date Range Filter
       if (startDate && endDate) {
-        const cDate = c.start_date || `${c.year}-${String(c.month).padStart(2, '0')}-15`;
+        const cDate = String(c.start_date || `${c.year}-${String(c.month).padStart(2, '0')}-15`).slice(0, 10);
         return cDate >= startDate && cDate <= endDate;
       }
       return true;

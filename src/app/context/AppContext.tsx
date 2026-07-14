@@ -262,13 +262,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const statusMatch = campaignFilter === 'all' || c.status === campaignFilter || (campaignFilter === 'at_risk' && c.status === 'warning');
         
         const q = searchQuery.toLowerCase();
-        const searchMatch = !searchQuery || 
-          c.name.toLowerCase().includes(q) || 
-          c.channel.toLowerCase().includes(q) ||
-          (c.campaign_target && c.campaign_target.toLowerCase().includes(q)) ||
-          (c.audience_type && c.audience_type.toLowerCase().includes(q)) ||
-          (c.ad_format && c.ad_format.toLowerCase().includes(q)) ||
-          (c.product_category && c.product_category.toLowerCase().includes(q));
+        const searchMatch = !searchQuery ||
+          String(c.name || '').toLowerCase().includes(q) ||
+          String(c.channel || c.platform || '').toLowerCase().includes(q) ||
+          (c.campaign_target && String(c.campaign_target).toLowerCase().includes(q)) ||
+          (c.audience_type && String(c.audience_type).toLowerCase().includes(q)) ||
+          (c.ad_format && String(c.ad_format).toLowerCase().includes(q)) ||
+          (c.product_category && String(c.product_category).toLowerCase().includes(q));
           
         return clientMatch && statusMatch && searchMatch;
       });
