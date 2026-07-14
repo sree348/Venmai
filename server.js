@@ -11,25 +11,19 @@ const HOST = '0.0.0.0';
 
 /** Backend origin for API + Socket.IO proxy (e.g. https://mip-backend.onrender.com). */
 function getBackendOrigin() {
+  const fallback = (process.env.BACKEND_PUBLIC_URL || 'https://mip-backend.onrender.com').replace(/\/$/, '');
   const raw = (process.env.BACKEND_URL || process.env.API_PROXY_TARGET || '').trim();
-  if (!raw) return null;
-  // Prefer a public Render URL; internal short hosts (mip-backend-x9n2) do not resolve on free plans.
-  if (/^https?:\/\//i.test(raw)) {
-    try {
-      const u = new URL(raw);
-      if (!u.hostname.includes('.') && process.env.BACKEND_PUBLIC_URL) {
-        return process.env.BACKEND_PUBLIC_URL.replace(/\/$/, '');
-      }
-      return raw.replace(/\/$/, '');
-    } catch {
-      return raw.replace(/\/$/, '');
-    }
-  }
-  if (!raw.includes('.')) {
-    const fallback = (process.env.BACKEND_PUBLIC_URL || 'https://mip-backend.onrender.com').replace(/\/$/, '');
+  if (!raw) return fallback;
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const u = new URL(withProtocol);
+    // Internal Render hosts like "mip-backend-x9n2" have no dot and do not resolve publicly.
+    if (!u.hostname.includes('.')) return fallback;
+    return `${u.protocol}//${u.host}`.replace(/\/$/, '');
+  } catch {
     return fallback;
   }
-  return `https://${raw.replace(/\/$/, '')}`;
 }
 
 const MIME_TYPES = {
