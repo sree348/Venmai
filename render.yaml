@@ -9,10 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: BACKEND_URL
-        fromService:
-          name: mip-backend
-          type: web
-          property: host
+        value: https://mip-backend.onrender.com
 
   - type: web
     name: mip-backend

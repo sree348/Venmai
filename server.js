@@ -11,9 +11,24 @@ const HOST = '0.0.0.0';
 
 /** Backend origin for API + Socket.IO proxy (e.g. https://mip-backend.onrender.com). */
 function getBackendOrigin() {
-  const raw = process.env.BACKEND_URL || process.env.API_PROXY_TARGET || '';
+  const raw = (process.env.BACKEND_URL || process.env.API_PROXY_TARGET || '').trim();
   if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw.replace(/\/$/, '');
+  // Prefer a public Render URL; internal short hosts (mip-backend-x9n2) do not resolve on free plans.
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      if (!u.hostname.includes('.') && process.env.BACKEND_PUBLIC_URL) {
+        return process.env.BACKEND_PUBLIC_URL.replace(/\/$/, '');
+      }
+      return raw.replace(/\/$/, '');
+    } catch {
+      return raw.replace(/\/$/, '');
+    }
+  }
+  if (!raw.includes('.')) {
+    const fallback = (process.env.BACKEND_PUBLIC_URL || 'https://mip-backend.onrender.com').replace(/\/$/, '');
+    return fallback;
+  }
   return `https://${raw.replace(/\/$/, '')}`;
 }
 
