@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: mip-frontend
+    name: venmai-web
     runtime: node
     plan: free
     buildCommand: npm install --include=dev && npm run build
@@ -9,10 +9,16 @@ services:
       - key: NODE_ENV
         value: production
       - key: BACKEND_URL
-        value: https://mip-backend.onrender.com
+        value: https://venmai-api.onrender.com
+      - key: VITE_MOCK_MODE
+        value: "false"
+      - key: VITE_TENANT_ID
+        value: agency
+      - key: VITE_AUTH_TOKEN
+        sync: false
 
   - type: web
-    name: mip-backend
+    name: venmai-api
     runtime: node
     plan: free
     rootDir: backend
@@ -23,22 +29,16 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: mip-postgres-db
+          name: venmai-postgres
           property: connectionString
       - key: JWT_SECRET
-        generateValue: true
+        value: dev-secret
       - key: CREDENTIAL_ENCRYPTION_KEY
         generateValue: true
       - key: CORS_ORIGIN
-        fromService:
-          name: mip-frontend
-          type: web
-          property: host
+        value: https://venmai-web.onrender.com
       - key: FRONTEND_URL
-        fromService:
-          name: mip-frontend
-          type: web
-          property: host
+        value: https://venmai-web.onrender.com
       - key: OPENAI_API_KEY
         sync: false
       - key: TAVILY_API_KEY
@@ -49,5 +49,5 @@ services:
         value: gpt-4o-mini
 
 databases:
-  - name: mip-postgres-db
+  - name: venmai-postgres
     plan: free

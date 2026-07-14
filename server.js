@@ -11,7 +11,7 @@ const HOST = '0.0.0.0';
 
 /** Backend origin for API + Socket.IO proxy (e.g. https://mip-backend.onrender.com). */
 function getBackendOrigin() {
-  const fallback = (process.env.BACKEND_PUBLIC_URL || 'https://mip-backend.onrender.com').replace(/\/$/, '');
+  const fallback = (process.env.BACKEND_PUBLIC_URL || 'https://venmai-api.onrender.com').replace(/\/$/, '');
   const raw = (process.env.BACKEND_URL || process.env.API_PROXY_TARGET || '').trim();
   if (!raw) return fallback;
 
