@@ -35,9 +35,19 @@ process.on('uncaughtException', (error) => {
 });
 
 
+function toPublicUrl(value: string | undefined, fallback: string) {
+  const raw = (value || '').trim();
+  if (!raw) return fallback;
+  if (/^https?:\/\//i.test(raw)) return raw.replace(/\/$/, '');
+  return `https://${raw.replace(/\/$/, '')}`;
+}
+
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const frontendOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendOrigin = toPublicUrl(
+  process.env.CORS_ORIGIN || process.env.FRONTEND_URL,
+  'http://localhost:5173',
+);
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
