@@ -13,14 +13,17 @@ function buildPoolConfig() {
     return undefined;
   }
 
-  // Render Postgres requires SSL for external URLs; internal URLs are fine either way.
+  // External Render URLs (*.onrender.com / sslmode=require) need TLS.
+  // Internal Render DB hosts (dpg-*-a) should not force SSL — that can hang boot.
   const needsSsl =
     /sslmode=require/i.test(connectionString) ||
-    /onrender\.com/i.test(connectionString) ||
-    process.env.NODE_ENV === 'production';
+    /\.onrender\.com/i.test(connectionString);
 
   return {
     connectionString,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: 30_000,
+    max: 5,
     ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
   };
 }

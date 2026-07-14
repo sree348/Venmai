@@ -113,9 +113,6 @@ app.use((error: Error, _req: express.Request, res: express.Response, _next: expr
   });
 });
 
-initializeMetaConnectionFromEnv();
-startMetaSyncJob();
-
 function refreshAgentSnapshot() {
   void exportAgentDataSnapshotsForTenant('agency')
     .then(snapshots => {
@@ -135,14 +132,21 @@ function refreshAgentSnapshot() {
 }
 
 cron.schedule('*/30 * * * *', refreshAgentSnapshot);
-refreshAgentSnapshot();
-
-void runBrainAnalysis('agency')
-  .then(() => console.log('[Brain] startup analysis complete'))
-  .catch(error => console.error('[Brain] startup analysis failed:', error));
 
 httpServer.listen(port, '0.0.0.0', () => {
   console.log(`MIP backend listening on 0.0.0.0:${port}`);
+
+  // Defer DB-heavy work until after bind so free-tier health checks succeed.
+  setTimeout(() => {
+    void initializeMetaConnectionFromEnv().catch(error => {
+      console.error('[Meta] startup init failed:', error);
+    });
+    startMetaSyncJob();
+    refreshAgentSnapshot();
+    void runBrainAnalysis('agency')
+      .then(() => console.log('[Brain] startup analysis complete'))
+      .catch(error => console.error('[Brain] startup analysis failed:', error));
+  }, 1500);
 });
 
 export { app };
